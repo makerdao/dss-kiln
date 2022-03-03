@@ -91,7 +91,7 @@ abstract contract DssKiln {
     }
 
     function fire() external lock {
-        require(block.timestamp > _add(zzz, hop), "DssKiln/fired-too-soon");
+        require(block.timestamp >= _add(zzz, hop), "DssKiln/fired-too-soon");
         uint256 _amt = _min(GemLike(DAI).balanceOf(address(this)), lot);
         require(_amt > 0, "DssKiln/no-balance");
         uint256 _swapped = _swap(_amt);

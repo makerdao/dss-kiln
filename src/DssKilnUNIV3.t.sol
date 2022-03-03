@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.12;
+pragma experimental ABIEncoderV2;
 
 import "ds-test/test.sol";
 
@@ -24,6 +25,7 @@ interface Quoter {
         uint160 sqrtPriceLimitX96
     ) external returns (uint256 amountOut);
 }
+
 
 contract DssKilnTest is DSTest {
     Hevm hevm;
@@ -121,6 +123,18 @@ contract DssKilnTest is DSTest {
         assertTrue(GemLike(dai).balanceOf(address(kiln)) >= 50_000 * WAD);
         assertTrue(TestGem(mkr).totalSupply() < mkrSupply);
         assertEq(TestGem(mkr).totalSupply(), mkrSupply - _est);
+    }
+
+    function testBurnMulti() public {
+        mintDai(address(kiln), 100_000 * WAD);
+
+        kiln.file("lot", 50 * WAD); // Use a smaller amount due to slippage limits
+
+        kiln.fire();
+
+        hevm.warp(block.timestamp + 6 hours);
+
+        kiln.fire();
     }
 
     function testFailFireNoBalance() public {
