@@ -20,8 +20,8 @@ contract DssKilnTest is DSTest {
 
     DssKilnUNIV2 kiln;
 
-    address dai;
-    address mkr;
+    address constant dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant mkr = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
 
     // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
     bytes20 constant CHEAT_CODE =
@@ -33,13 +33,11 @@ contract DssKilnTest is DSTest {
 
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
-        kiln = new DssKilnUNIV2(UNIV2ROUTER);
+        kiln = new DssKilnUNIV2(dai, mkr, UNIV2ROUTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
 
-        dai = kiln.DAI();
-        mkr = kiln.MKR();
     }
 
     function mintDai(address usr, uint256 amt) internal {

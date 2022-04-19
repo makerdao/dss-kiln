@@ -19,10 +19,6 @@
 
 pragma solidity ^0.6.12;
 
-interface ChainlogLike {
-    function getAddress(bytes32) external view returns (address);
-}
-
 interface GemLike {
     function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
@@ -37,7 +33,7 @@ abstract contract DssKiln {
     function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
     function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
     modifier auth {
-        require(wards[msg.sender] == 1, "DssVest/not-authorized");
+        require(wards[msg.sender] == 1, "DssKiln/not-authorized");
         _;
     }
 
@@ -45,14 +41,13 @@ abstract contract DssKiln {
     uint256 public hop;  // [Seconds]    Time between sales
     uint256 public zzz;  // [Timestamp]  Last trade
 
-    ChainlogLike public constant chainlog = ChainlogLike(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
-    address public immutable DAI = chainlog.getAddress("MCD_DAI");
-    address public immutable MKR = chainlog.getAddress("MCD_GOV");
+    address public immutable sell;
+    address public immutable buy;
 
     // --- Mutex  ---
     uint256 internal locked;
     modifier lock {
-        require(locked == 0, "DssVest/system-locked");
+        require(locked == 0, "DssKiln/system-locked");
         locked = 1;
         _;
         locked = 0;
@@ -74,7 +69,10 @@ abstract contract DssKiln {
     /**
         @dev Base contract constructor
     */
-    constructor() public {
+    constructor(address _sell, address _buy) public {
+        sell = _sell;
+        buy  = _buy;
+
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -93,7 +91,7 @@ abstract contract DssKiln {
 
     function fire() external lock {
         require(block.timestamp >= _add(zzz, hop), "DssKiln/fired-too-soon");
-        uint256 _amt = _min(GemLike(DAI).balanceOf(address(this)), lot);
+        uint256 _amt = _min(GemLike(sell).balanceOf(address(this)), lot);
         require(_amt > 0, "DssKiln/no-balance");
         uint256 _swapped = _swap(_amt);
         zzz = block.timestamp;
@@ -110,6 +108,6 @@ abstract contract DssKiln {
         @dev Default to burn. Override in inherited contract to implement some other disposition.
      */
     function _drop(uint256 _amount) virtual internal {
-        GemLike(MKR).burn(_amount);
+        GemLike(buy).burn(_amount);
     }
 }

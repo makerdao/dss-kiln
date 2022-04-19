@@ -44,17 +44,17 @@ contract DssKilnUNIV3Saver is DssKiln {
     address public immutable uniV3Router;
     address public immutable receiver;
 
-    constructor(address _uniV3Router, address _receiver) public DssKiln() {
+    constructor(address _sell, address _buy, address _uniV3Router, address _receiver) public DssKiln(_sell, _buy) {
         uniV3Router = _uniV3Router;
         receiver = _receiver;
     }
 
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
-        require(GemLike(DAI).approve(uniV3Router, _amount));
+        require(GemLike(sell).approve(uniV3Router, _amount));
 
         ExactInputSingleParams memory params = ExactInputSingleParams(
-            DAI,             // tokenIn
-            MKR,             // tokenOut
+            sell,            // tokenIn
+            buy,             // tokenOut
             3000,            // fee
             address(this),   // recipient
             block.timestamp, // deadline
@@ -64,13 +64,13 @@ contract DssKilnUNIV3Saver is DssKiln {
         );
 
         _swapped = UniswapRouterV3Like(uniV3Router).exactInputSingle(params);
-        require(GemLike(MKR).balanceOf(address(this)) >= _swapped, "DssKilnUNIV3/swapped-balance-not-available");
+        require(GemLike(buy).balanceOf(address(this)) >= _swapped, "DssKilnUNIV3/swapped-balance-not-available");
     }
 
     /**
         @dev Transfer the purchased token to the receiver
      */
     function _drop(uint256 _amount) internal override {
-        GemLike(MKR).transfer(receiver, _amount);
+        GemLike(buy).transfer(receiver, _amount);
     }
 }

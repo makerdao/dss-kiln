@@ -20,7 +20,7 @@ interface Quoter {
     function quoteExactInputSingle(
         address tokenIn,
         address tokenOut,
-        uint24 fee,
+        uint24  fee,
         uint256 amountIn,
         uint160 sqrtPriceLimitX96
     ) external returns (uint256 amountOut);
@@ -35,8 +35,8 @@ contract DssKilnTest is DSTest {
 
     Quoter quoter;
 
-    address dai;
-    address mkr;
+    address constant dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant mkr = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
 
     // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
     bytes20 constant CHEAT_CODE =
@@ -52,15 +52,13 @@ contract DssKilnTest is DSTest {
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
         user = new User();
-        kiln = new DssKilnUNIV3Saver(UNIV3ROUTER, address(user));
+        kiln = new DssKilnUNIV3Saver(dai, mkr, UNIV3ROUTER, address(user));
 
         quoter = Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
 
-        dai = kiln.DAI();
-        mkr = kiln.MKR();
     }
 
     function mintDai(address usr, uint256 amt) internal {

@@ -35,16 +35,16 @@ contract DssKilnUNIV2 is DssKiln {
 
     address public immutable uniV2Router;
 
-    constructor(address _uniV2Router) public DssKiln() {
+    constructor(address _sell, address _buy, address _uniV2Router) public DssKiln(_sell, _buy) {
         uniV2Router = _uniV2Router;
     }
 
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
-        require(GemLike(DAI).approve(uniV2Router, _amount));
+        require(GemLike(sell).approve(uniV2Router, _amount));
 
         address[] memory _path = new address[](2);
-        _path[0] = DAI;
-        _path[1] = MKR;
+        _path[0] = sell;
+        _path[1] = buy;
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _amount,           // amountIn
             0,                 // amountOutMin
@@ -52,6 +52,6 @@ contract DssKilnUNIV2 is DssKiln {
             address(this),     // to
             block.timestamp);  // deadline
         _swapped = _amounts[_amounts.length - 1];
-        require(GemLike(MKR).balanceOf(address(this)) >= _swapped, "DssKilnUNIV2/swapped-balance-not-available");
+        require(GemLike(buy).balanceOf(address(this)) >= _swapped, "DssKilnUNIV2/swapped-balance-not-available");
     }
 }
