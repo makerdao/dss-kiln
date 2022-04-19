@@ -27,6 +27,7 @@ interface GemLike {
     function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
     function burn(uint256) external;
+    function transfer(address, uint256) external;
 }
 
 abstract contract DssKiln {
@@ -108,7 +109,7 @@ abstract contract DssKiln {
     /**
         @dev Default to burn. Override in inherited contract to implement some other disposition.
      */
-    function _drop(uint256 _amount) internal {
+    function _drop(uint256 _amount) virtual internal {
         GemLike(MKR).burn(_amount);
     }
 }
