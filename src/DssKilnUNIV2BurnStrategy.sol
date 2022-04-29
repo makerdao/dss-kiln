@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.6.12;
+pragma solidity ^0.8.13;
 
 import "./DssKiln.sol";
 
@@ -35,7 +35,7 @@ contract DssKilnUNIV2BurnStrategy is DssKiln {
 
     address public immutable uniV2Router;
 
-    constructor(address _sell, address _buy, address _uniV2Router) public DssKiln(_sell, _buy) {
+    constructor(address _sell, address _buy, address _uniV2Router) DssKiln(_sell, _buy) {
         uniV2Router = _uniV2Router;
     }
 
