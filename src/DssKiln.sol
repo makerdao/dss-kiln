@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// DssKiln - MKR AMM Burn Module
+// DssKiln - Asset aquisition and control module
 //
 // Copyright (C) 2022 Dai Foundation
 //
@@ -105,9 +105,7 @@ abstract contract DssKiln {
     function _swap(uint256 _amount) virtual internal returns (uint256 _swapped);
 
     /**
-        @dev Default to burn. Override in inherited contract to implement some other disposition.
+        @dev Override in inherited contract to implement some other disposition.
      */
-    function _drop(uint256 _amount) virtual internal {
-        GemLike(buy).burn(_amount);
-    }
+    function _drop(uint256 _amount) virtual internal;
 }
