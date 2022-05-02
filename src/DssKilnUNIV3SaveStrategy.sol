@@ -63,7 +63,7 @@ contract DssKilnUNIV3SaveStrategy is DssKiln {
         ExactInputSingleParams memory params = ExactInputSingleParams(
             sell,            // tokenIn
             buy,             // tokenOut
-            3000,            // fee
+            poolFee,         // fee
             address(this),   // recipient
             block.timestamp, // deadline
             _amount,         // amountIn
