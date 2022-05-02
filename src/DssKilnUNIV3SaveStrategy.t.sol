@@ -51,7 +51,7 @@ contract DssKilnTest is DSTest {
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
         user = new User();
-        kiln = new DssKilnUNIV3SaveStrategy(dai, mkr, UNIV3ROUTER, address(user));
+        kiln = new DssKilnUNIV3SaveStrategy(dai, mkr, UNIV3ROUTER, address(user), 3000);
 
         quoter = Quoter(QUOTER);
 

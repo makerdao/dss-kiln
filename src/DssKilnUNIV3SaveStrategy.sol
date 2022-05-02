@@ -41,9 +41,18 @@ struct ExactInputSingleParams {
 contract DssKilnUNIV3SaveStrategy is DssKiln {
 
     address public immutable uniV3Router;
+    uint24  public immutable poolFee;
     address public immutable receiver;
 
-    constructor(address _sell, address _buy, address _uniV3Router, address _receiver) DssKiln(_sell, _buy) {
+    // @notice initialize a Uniswap V3 routing path contract
+    // @param _sell the contract address of the token that will be sold
+    // @param _buy  the contract address of the token that will be purchased
+    // @param _uniV3Router the address of the current Uniswap V3 swap router
+    // @param _receiver the address of the account which will receive the funds to be bought
+    // @param _poolFee the Uniswap fee pool to use for trades (0.3% == 3000, 0.05% == 500)
+    constructor(address _sell, address _buy, address _uniV3Router, address _receiver, uint256 _poolFee) DssKiln(_sell, _buy) {
+        require(_poolFee <= type(uint24).max);
+        poolFee = uint24(_poolFee);
         uniV3Router = _uniV3Router;
         receiver = _receiver;
     }
