@@ -22,11 +22,13 @@ pragma solidity ^0.8.13;
 import "./DssKiln.sol";
 
 interface UniswapRouterV3Like {
-      function exactInputSingle(
-        ExactInputSingleParams calldata params
-        ) external returns (uint256 amountOut);
+    // https://docs.uniswap.org/protocol/reference/periphery/interfaces/ISwapRouter#exactinputsingle
+    function exactInputSingle(
+      ExactInputSingleParams calldata params
+      ) external returns (uint256 amountOut);
 }
 
+// https://docs.uniswap.org/protocol/reference/periphery/interfaces/ISwapRouter#exactinputsingleparams
 struct ExactInputSingleParams {
     address tokenIn;
     address tokenOut;
