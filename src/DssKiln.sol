@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// DssKiln - Asset aquisition and control module
+// DssKiln - Asset acquisition and control module
 //
 // Copyright (C) 2022 Dai Foundation
 //

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// DssKilnUNIV2 - Burn Module for Uniswap V2
+// DssKilnUNIV2BurnStrategy - Burn Module for Uniswap V2
 //
 // Copyright (C) 2022 Dai Foundation
 //
