@@ -39,6 +39,9 @@ contract DssKilnUNIV2BurnStrategy is DssKiln {
         uniV2Router = _uniV2Router;
     }
 
+    /// @notice this implementation is currently susceptible to slippage and MEV losses.
+    ///         It is currently provided as an example of a basic integration and is not
+    ///         intended for prodution purposes in it's current state.
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
         require(GemLike(sell).approve(uniV2Router, _amount));
 

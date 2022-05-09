@@ -25,4 +25,4 @@ Once deployed, the Kiln contract should be topped up with the token that is to b
   * For example, a protocol may wish to buy and burn it's own native token over time.
 
 * `DssKilnUNIV2BurnStrategy`: A prototype burn strategy using Uniswap V2.
-  * __Note: this strategy is currently susceptible to slippage if pool liquidity is low__
+  * __Note: this strategy is currently susceptible to slippage if pool liquidity is low, it is not currently provided as an example integration only__
