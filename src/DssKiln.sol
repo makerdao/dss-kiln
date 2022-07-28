@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.14;
 
 interface GemLike {
     function approve(address, uint256) external returns (bool);
