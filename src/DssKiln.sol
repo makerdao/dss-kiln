@@ -30,41 +30,19 @@ abstract contract DssKiln {
 
     // --- Auth ---
     mapping (address => uint256) public wards;
-    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
-    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
-    modifier auth {
-        require(wards[msg.sender] == 1, "DssKiln/not-authorized");
-        _;
-    }
 
-    uint256 public lot;  // [WAD]        Amount of token to sell
-    uint256 public hop;  // [Seconds]    Time between sales
-    uint256 public zzz;  // [Timestamp]  Last trade
-
+    uint256 public           lot;  // [WAD]        Amount of token to sell
+    uint256 public           hop;  // [Seconds]    Time between sales
+    uint256 public           zzz;  // [Timestamp]  Last trade
     address public immutable sell;
     address public immutable buy;
 
-    // --- Mutex  ---
     uint256 internal locked;
-    modifier lock {
-        require(locked == 0, "DssKiln/system-locked");
-        locked = 1;
-        _;
-        locked = 0;
-    }
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event Fire(uint256 indexed dai, uint256 indexed mkr);
-
-    function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
-
-    function _min(uint256 x, uint256 y) internal pure returns (uint z) {
-        return x <= y ? x : y;
-    }
 
     /**
         @dev Base contract constructor
@@ -76,6 +54,31 @@ abstract contract DssKiln {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
+
+    modifier auth {
+        require(wards[msg.sender] == 1, "DssKiln/not-authorized");
+        _;
+    }
+
+    // --- Mutex  ---
+    modifier lock {
+        require(locked == 0, "DssKiln/system-locked");
+        locked = 1;
+        _;
+        locked = 0;
+    }
+
+    function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x + y) >= x);
+    }
+
+    function _min(uint256 x, uint256 y) internal pure returns (uint z) {
+        return x <= y ? x : y;
+    }
+
+    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
+
+    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
 
     /**
         @dev Auth'ed function to update lot or hop values
