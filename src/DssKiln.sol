@@ -58,10 +58,6 @@ abstract contract DssKiln {
     event File(bytes32 indexed what, uint256 data);
     event Fire(uint256 indexed dai, uint256 indexed mkr);
 
-    function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
-
     function _min(uint256 x, uint256 y) internal pure returns (uint z) {
         return x <= y ? x : y;
     }
@@ -90,7 +86,7 @@ abstract contract DssKiln {
     }
 
     function fire() external lock {
-        require(block.timestamp >= _add(zzz, hop), "DssKiln/fired-too-soon");
+        require(block.timestamp >= zzz + hop , "DssKiln/fired-too-soon");
         uint256 _amt = _min(GemLike(sell).balanceOf(address(this)), lot);
         require(_amt > 0, "DssKiln/no-balance");
         uint256 _swapped = _swap(_amt);
