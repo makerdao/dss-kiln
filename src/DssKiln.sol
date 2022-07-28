@@ -78,7 +78,7 @@ abstract contract DssKiln {
     }
 
     /**
-        @dev (Required)
+        @dev Auth'ed function to update lot or hop values
         @param what   Tag of value to update
         @param data   Value to update
     */
