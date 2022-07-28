@@ -83,8 +83,8 @@ abstract contract DssKiln {
         @param data   Value to update
     */
     function file(bytes32 what, uint256 data) external auth {
-        if      (what == "lot")         lot = data;
-        else if (what == "hop")         hop = data;
+        if      (what == "lot") lot = data;
+        else if (what == "hop") hop = data;
         else revert("DssKiln/file-unrecognized-param");
         emit File(what, data);
     }
