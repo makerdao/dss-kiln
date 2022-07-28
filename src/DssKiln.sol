@@ -92,6 +92,9 @@ abstract contract DssKiln {
         emit File(what, data);
     }
 
+    /**
+        @dev Function to execute swap/drop and reset zzz if enough time has passed
+    */
     function fire() external lock {
         require(block.timestamp >= _add(zzz, hop), "DssKiln/fired-too-soon");
         uint256 _amt = _min(GemLike(sell).balanceOf(address(this)), lot);
