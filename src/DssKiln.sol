@@ -30,22 +30,37 @@ abstract contract DssKiln {
 
     // --- Auth ---
     mapping (address => uint256) public wards;
-    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
-    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
+
+    uint256 public           lot;  // [WAD]        Amount of token to sell
+    uint256 public           hop;  // [Seconds]    Time between sales
+    uint256 public           zzz;  // [Timestamp]  Last trade
+    address public immutable sell;
+    address public immutable buy;
+
+    uint256 internal locked;
+
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
+    event File(bytes32 indexed what, uint256 data);
+    event Fire(uint256 indexed dai, uint256 indexed mkr);
+
+    /**
+        @dev Base contract constructor
+    */
+    constructor(address _sell, address _buy) {
+        sell = _sell;
+        buy  = _buy;
+
+        wards[msg.sender] = 1;
+        emit Rely(msg.sender);
+    }
+
     modifier auth {
         require(wards[msg.sender] == 1, "DssKiln/not-authorized");
         _;
     }
 
-    uint256 public lot;  // [WAD]        Amount of token to sell
-    uint256 public hop;  // [Seconds]    Time between sales
-    uint256 public zzz;  // [Timestamp]  Last trade
-
-    address public immutable sell;
-    address public immutable buy;
-
     // --- Mutex  ---
-    uint256 internal locked;
     modifier lock {
         require(locked == 0, "DssKiln/system-locked");
         locked = 1;
@@ -62,29 +77,25 @@ abstract contract DssKiln {
         return x <= y ? x : y;
     }
 
-    /**
-        @dev Base contract constructor
-    */
-    constructor(address _sell, address _buy) {
-        sell = _sell;
-        buy  = _buy;
+    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
 
-        wards[msg.sender] = 1;
-        emit Rely(msg.sender);
-    }
+    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
 
     /**
-        @dev (Required)
+        @dev Auth'ed function to update lot or hop values
         @param what   Tag of value to update
         @param data   Value to update
     */
-    function file(bytes32 what, uint256 data) external auth lock {
-        if      (what == "lot")         lot = data;
-        else if (what == "hop")         hop = data;
+    function file(bytes32 what, uint256 data) external auth {
+        if      (what == "lot") lot = data;
+        else if (what == "hop") hop = data;
         else revert("DssKiln/file-unrecognized-param");
         emit File(what, data);
     }
 
+    /**
+        @dev Function to execute swap/drop and reset zzz if enough time has passed
+    */
     function fire() external lock {
         require(block.timestamp >= zzz + hop , "DssKiln/fired-too-soon");
         uint256 _amt = _min(GemLike(sell).balanceOf(address(this)), lot);
