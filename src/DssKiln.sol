@@ -68,11 +68,6 @@ abstract contract DssKiln {
         locked = 0;
     }
 
-    event Rely(address indexed usr);
-    event Deny(address indexed usr);
-    event File(bytes32 indexed what, uint256 data);
-    event Fire(uint256 indexed dai, uint256 indexed mkr);
-
     function _min(uint256 x, uint256 y) internal pure returns (uint z) {
         return x <= y ? x : y;
     }
