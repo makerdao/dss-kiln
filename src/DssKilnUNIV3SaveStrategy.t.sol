@@ -35,7 +35,7 @@ contract DssKilnTest is DSTest {
     Quoter quoter;
 
     address constant dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-    address constant mkr = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
+    address constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
     bytes20 constant CHEAT_CODE =
@@ -51,7 +51,7 @@ contract DssKilnTest is DSTest {
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
         user = new User();
-        kiln = new DssKilnUNIV3SaveStrategy(dai, mkr, UNIV3ROUTER, address(user), 3000);
+        kiln = new DssKilnUNIV3SaveStrategy(dai, weth, UNIV3ROUTER, address(user), 3000);
 
         quoter = Quoter(QUOTER);
 
@@ -70,45 +70,46 @@ contract DssKilnTest is DSTest {
     }
 
     function estimate(uint256 amtIn) internal returns (uint256 amtOut) {
-        return quoter.quoteExactInputSingle(dai, mkr, 3000, amtIn, 0);
+        return quoter.quoteExactInputSingle(dai, weth, 3000, amtIn, 0);
     }
 
     function testFire() public {
         mintDai(address(kiln), 50_000 * WAD);
 
         assertEq(GemLike(dai).balanceOf(address(kiln)), 50_000 * WAD);
-        uint256 mkrSupply = TestGem(mkr).totalSupply();
-        assertTrue(mkrSupply > 0);
+        uint256 wethSupply = TestGem(weth).totalSupply();
+        assertTrue(wethSupply > 0);
 
         uint256 _est = estimate(50_000 * WAD);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(mkr).balanceOf(address(user)), 0);
+        assertEq(GemLike(weth).balanceOf(address(user)), 0);
 
         kiln.fire();
 
         assertTrue(GemLike(dai).balanceOf(address(kiln)) < 50_000 * WAD);
-        assertEq(GemLike(mkr).balanceOf(address(user)), _est);
+        assertEq(GemLike(weth).balanceOf(address(user)), _est);
     }
 
     // Lot is 50k, ensure we can still fire if balance is lower than lot
     function testFireLtLot() public {
-        mintDai(address(kiln), 20_000 * WAD);
+        uint256 smallBalance = 100 * WAD;
+        mintDai(address(kiln), smallBalance);
 
-        assertEq(GemLike(dai).balanceOf(address(kiln)), 20_000 * WAD);
-        uint256 mkrSupply = TestGem(mkr).totalSupply();
-        assertTrue(mkrSupply > 0);
+        assertEq(GemLike(dai).balanceOf(address(kiln)), smallBalance);
+        uint256 wethSupply = TestGem(weth).totalSupply();
+        assertTrue(wethSupply > 0);
 
-        uint256 _est = estimate(20_000 * WAD);
+        uint256 _est = estimate(smallBalance);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(mkr).balanceOf(address(user)), 0);
+        assertEq(GemLike(weth).balanceOf(address(user)), 0);
 
         kiln.fire();
 
         assertEq(GemLike(dai).balanceOf(address(kiln)), 0);
-        assertEq(TestGem(mkr).totalSupply(), mkrSupply); // not burned
-        assertEq(GemLike(mkr).balanceOf(address(user)), _est);
+        assertEq(TestGem(weth).totalSupply(), wethSupply); // not burned
+        assertEq(GemLike(weth).balanceOf(address(user)), _est);
     }
 
     // Ensure we only sell off the lot size
@@ -125,7 +126,7 @@ contract DssKilnTest is DSTest {
         // Due to liquidity constrants, not all of the tokens may be sold
         assertTrue(GemLike(dai).balanceOf(address(kiln)) >= 50_000 * WAD);
         assertTrue(GemLike(dai).balanceOf(address(kiln)) < 100_000 * WAD);
-        assertEq(GemLike(mkr).balanceOf(address(user)), _est);
+        assertEq(GemLike(weth).balanceOf(address(user)), _est);
     }
 
 
