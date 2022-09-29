@@ -42,6 +42,7 @@ abstract contract DssKiln {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
+    event Rug(address indexed usr, uint256 amt);
     event Fire(uint256 indexed dai, uint256 indexed mkr);
 
     /**
@@ -86,6 +87,15 @@ abstract contract DssKiln {
         else if (what == "hop") hop = data;
         else revert("DssKiln/file-unrecognized-param");
         emit File(what, data);
+    }
+
+    /**
+        @dev Auth'ed function to withdraw unspent funds
+    */
+    function rug() external auth {
+        uint256 amt = GemLike(sell).balanceOf(address(this));
+        GemLike(sell).transfer(msg.sender, amt);
+        emit Rug(msg.sender, amt);
     }
 
     /**
