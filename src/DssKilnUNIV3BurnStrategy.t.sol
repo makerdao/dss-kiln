@@ -87,13 +87,14 @@ contract DssKilnTest is DSTest {
     }
 
     function testFireLtLot() public {
-        mintDai(address(kiln), 20_000 * WAD);
+        uint256 smallBalance = 100 * WAD;
+        mintDai(address(kiln), smallBalance);
 
-        assertEq(GemLike(dai).balanceOf(address(kiln)), 20_000 * WAD);
+        assertEq(GemLike(dai).balanceOf(address(kiln)), smallBalance);
         uint256 mkrSupply = TestGem(mkr).totalSupply();
         assertTrue(mkrSupply > 0);
 
-        uint256 _est = estimate(20_000 * WAD);
+        uint256 _est = estimate(smallBalance);
         assertTrue(_est > 0);
 
         kiln.fire();
