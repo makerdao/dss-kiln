@@ -1,8 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-//
-// DssKiln - Asset acquisition and control module
-//
-// Copyright (C) 2022 Dai Foundation
+// SPDX-FileCopyrightText: © 2022 Dai Foundation <www.daifoundation.org>
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -22,32 +19,26 @@ pragma solidity ^0.8.14;
 interface GemLike {
     function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
-    function burn(uint256) external;
     function transfer(address, uint256) external;
 }
 
-abstract contract DssKiln {
-
-    // --- Auth ---
+abstract contract KilnBase {
     mapping (address => uint256) public wards;
 
-    uint256 public           lot;  // [WAD]        Amount of token to sell
-    uint256 public           hop;  // [Seconds]    Time between sales
-    uint256 public           zzz;  // [Timestamp]  Last trade
+    uint256 public lot;    // [WAD]        Amount of token to sell
+    uint256 public hop;    // [Seconds]    Time between sales
+    uint256 public zzz;    // [Timestamp]  Last trade
+    uint256 public locked;
+
     address public immutable sell;
     address public immutable buy;
-
-    uint256 internal locked;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
-    event Rug(address indexed usr, uint256 amt);
-    event Fire(uint256 indexed dai, uint256 indexed mkr);
+    event Rug(address indexed dst, uint256 amt);
+    event Fire(uint256 indexed amt, uint256 indexed swapped);
 
-    /**
-        @dev Base contract constructor
-    */
     constructor(address _sell, address _buy) {
         sell = _sell;
         buy  = _buy;
@@ -57,13 +48,12 @@ abstract contract DssKiln {
     }
 
     modifier auth {
-        require(wards[msg.sender] == 1, "DssKiln/not-authorized");
+        require(wards[msg.sender] == 1, "KilnBase/not-authorized");
         _;
     }
 
-    // --- Mutex  ---
     modifier lock {
-        require(locked == 0, "DssKiln/system-locked");
+        require(locked == 0, "KilnBase/system-locked");
         locked = 1;
         _;
         locked = 0;
@@ -73,8 +63,16 @@ abstract contract DssKiln {
         return x <= y ? x : y;
     }
 
+    /**
+        @dev Auth'ed function to authorize an address for privileged functions
+        @param usr   Address to be authorized
+    */
     function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
 
+    /**
+        @dev Auth'ed function to un-authorize an address for privileged functions
+        @param usr   Address to be un-authorized
+    */
     function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
 
     /**
@@ -82,42 +80,43 @@ abstract contract DssKiln {
         @param what   Tag of value to update
         @param data   Value to update
     */
-    function file(bytes32 what, uint256 data) external auth {
+    function file(bytes32 what, uint256 data) public virtual auth {
         if      (what == "lot") lot = data;
         else if (what == "hop") hop = data;
-        else revert("DssKiln/file-unrecognized-param");
+        else revert("KilnBase/file-unrecognized-param");
         emit File(what, data);
     }
 
     /**
         @dev Auth'ed function to withdraw unspent funds
+        @param dst   Destination of the funds
     */
-    function rug() external auth {
+    function rug(address dst) external auth {
         uint256 amt = GemLike(sell).balanceOf(address(this));
-        GemLike(sell).transfer(msg.sender, amt);
-        emit Rug(msg.sender, amt);
+        GemLike(sell).transfer(dst, amt);
+        emit Rug(dst, amt);
     }
 
     /**
         @dev Function to execute swap/drop and reset zzz if enough time has passed
     */
     function fire() external lock {
-        require(block.timestamp >= zzz + hop , "DssKiln/fired-too-soon");
-        uint256 _amt = _min(GemLike(sell).balanceOf(address(this)), lot);
-        require(_amt > 0, "DssKiln/no-balance");
-        uint256 _swapped = _swap(_amt);
+        require(block.timestamp >= zzz + hop, "KilnBase/fired-too-soon");
+        uint256 amt = _min(GemLike(sell).balanceOf(address(this)), lot);
+        require(amt > 0, "KilnBase/no-balance");
+        uint256 swapped = _swap(amt);
         zzz = block.timestamp;
-        _drop(_swapped);
-        emit Fire(_amt, _swapped);
+        _drop(swapped);
+        emit Fire(amt, swapped);
     }
 
     /**
         @dev Override this to implement swap logic
      */
-    function _swap(uint256 _amount) virtual internal returns (uint256 _swapped);
+    function _swap(uint256 amount) virtual internal returns (uint256 swapped);
 
     /**
-        @dev Override in inherited contract to implement some other disposition.
+        @dev Override this to implement some other disposition
      */
-    function _drop(uint256 _amount) virtual internal;
+    function _drop(uint256 amount) virtual internal;
 }
