@@ -73,7 +73,7 @@ contract KilnMomTest is Test {
     function mintDai(address usr, uint256 amt) internal {
         hevm.store(
             address(DAI),
-            keccak256(abi.encode(address(usr), uint(2))),
+            keccak256(abi.encode(address(usr), uint256(2))),
             bytes32(uint256(amt))
         );
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);

@@ -59,7 +59,7 @@ abstract contract KilnBase {
         locked = 0;
     }
 
-    function _min(uint256 x, uint256 y) internal pure returns (uint z) {
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
         return x <= y ? x : y;
     }
 

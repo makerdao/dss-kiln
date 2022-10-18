@@ -107,7 +107,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
 
         ExactInputParams memory params = ExactInputParams({
             path:             _path,
-            recipient:        address(this),
+            recipient:        receiver,
             deadline:         block.timestamp,
             amountIn:         amount,
             amountOutMinimum: amountMin
@@ -116,7 +116,5 @@ contract KilnUniV3 is KilnBase, TwapProduct {
         return SwapRouterLike(uniV3Router).exactInput(params);
     }
 
-    function _drop(uint256 amount) internal override {
-        GemLike(buy).transfer(receiver, amount);
-    }
+    function _drop(uint256) internal override {}
 }
