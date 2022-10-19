@@ -71,7 +71,7 @@ contract KilnTest is Test {
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
-        kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user), FACTORY);
+        kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
         quoter = Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
@@ -341,5 +341,9 @@ contract KilnTest is Test {
         // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol#L165
         vm.expectRevert("Too little received");
         kiln.fire();
+    }
+
+    function testFactoryDerivedFromRouter() public {
+        assertEq(SwapRouterLike(ROUTER).factory(), FACTORY);
     }
 }
