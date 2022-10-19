@@ -50,6 +50,9 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     // @param _buy  the contract address of the token that will be purchased
     // @param _uniV3Router the address of the current Uniswap V3 swap router
     // @param _receiver the address of the account which will receive the funds to be bought
+    // @dev   TWAP-relative trading is enabled by default. Fire will perform the trade
+    //        only when the amount of tokens received is better than the 1 hour average price.
+    //        file("yen", 0) to disable TWAP trading and accept any output amount.
     constructor(
         address _sell,
         address _buy,
