@@ -24,7 +24,7 @@ interface AuthorityLike {
     function canCall(address src, address dst, bytes4 sig) external view returns (bool);
 }
 
-// Bypass governance delay to disable a direct deposit module
+// Bypass governance delay to disable a kiln instance
 contract KilnMom {
     address public owner;
     address public authority;

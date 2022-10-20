@@ -22,6 +22,7 @@ import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol#L132
 interface SwapRouterLike {
     function exactInput(ExactInputParams calldata params) external returns (uint256 amountOut);
+    function factory() external returns (address factory);
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/interfaces/ISwapRouter.sol#L26
@@ -49,16 +50,17 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     // @param _buy  the contract address of the token that will be purchased
     // @param _uniV3Router the address of the current Uniswap V3 swap router
     // @param _receiver the address of the account which will receive the funds to be bought
-    // @param _uniV3Factory the address of the Uniswap V3 pool factory
+    // @dev   TWAP-relative trading is enabled by default. Fire will perform the trade
+    //        only when the amount of tokens received is better than the 1 hour average price.
+    //        file("yen", 0) to disable TWAP trading and accept any output amount.
     constructor(
         address _sell,
         address _buy,
         address _uniV3Router,
-        address _receiver,
-        address _uniV3Factory
+        address _receiver
     )
         KilnBase(_sell, _buy)
-        TwapProduct(_uniV3Factory)
+        TwapProduct(SwapRouterLike(_uniV3Router).factory())
     {
         uniV3Router = _uniV3Router;
         receiver    = _receiver;
