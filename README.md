@@ -17,7 +17,7 @@ Once deployed, the Kiln contract should be topped up with the token that is to b
 
 The KilnUniV3 implementation enables trading relative to a UniswapV3 price oracle. By default, the KilnUniV3 implementation will only buy tokens when it can trade at a price better than the previous 1 hour average. These parameters can be modified by filing new `scope` and `yen` values.
 
-The avergae price referred to is the multiplication product of single pool TWAP values for the given UniswapV3 routing path. As each TWAP value is not dependent on the actual swap amount, it does not incorporate price deterioration based on the total swap amount (aka price impact).
+The average price referred to is the multiplication product of single pool TWAP values for the given UniswapV3 routing path. As each TWAP value is not dependent on the actual swap amount, it does not incorporate price deterioration based on the total swap amount (aka price impact).
 
 ##### `scope` (Default: `3600`)
 
