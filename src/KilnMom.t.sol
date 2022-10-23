@@ -21,12 +21,6 @@ import "forge-std/Test.sol";
 import {KilnMom}           from "./KilnMom.sol";
 import {KilnBase, GemLike} from "./KilnBase.sol";
 
-interface Hevm {
-    function warp(uint256) external;
-    function store(address,bytes32,bytes32) external;
-    function load(address,bytes32) external;
-}
-
 contract KilnMock is KilnBase {
     constructor(address _sell, address _buy) KilnBase(_sell, _buy) {}
 
@@ -41,16 +35,11 @@ contract AuthorityMock {
 }
 
 contract KilnMomTest is Test {
-    Hevm hevm;
     KilnMock kiln;
     KilnMom mom;
 
     address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant MKR = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
-
-    // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
-    bytes20 constant CHEAT_CODE =
-    bytes20(uint160(uint256(keccak256('hevm cheat code'))));
 
     uint256 constant WAD = 1e18;
 
@@ -59,7 +48,6 @@ contract KilnMomTest is Test {
     event Rug(address indexed who, address indexed dst);
 
     function setUp() public {
-        hevm = Hevm(address(CHEAT_CODE));
         kiln = new KilnMock(DAI, MKR);
 
         kiln.file("lot", 50_000 * WAD);
@@ -71,11 +59,7 @@ contract KilnMomTest is Test {
     }
 
     function mintDai(address usr, uint256 amt) internal {
-        hevm.store(
-            address(DAI),
-            keccak256(abi.encode(address(usr), uint256(2))),
-            bytes32(uint256(amt))
-        );
+        deal(DAI, usr, amt);
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);
     }
 

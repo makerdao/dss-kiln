@@ -19,13 +19,6 @@ pragma solidity ^0.8.14;
 import "forge-std/Test.sol";
 import "./KilnUniV3.sol";
 
-interface Hevm {
-    function warp(uint256) external;
-    function roll(uint256) external;
-    function store(address,bytes32,bytes32) external;
-    function load(address,bytes32) external;
-}
-
 interface TestGem {
     function totalSupply() external view returns (uint256);
 }
@@ -41,7 +34,6 @@ interface Quoter {
 contract User {}
 
 contract KilnTest is Test {
-    Hevm hevm;
     KilnUniV3 kiln;
     Quoter quoter;
     User user;
@@ -53,10 +45,6 @@ contract KilnTest is Test {
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant MKR  = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
 
-    // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
-    bytes20 constant CHEAT_CODE =
-        bytes20(uint160(uint256(keccak256('hevm cheat code'))));
-
     uint256 constant WAD = 1e18;
 
     address constant ROUTER   = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -67,7 +55,6 @@ contract KilnTest is Test {
     event File(bytes32 indexed what, uint256 data);
 
     function setUp() public {
-        hevm = Hevm(address(CHEAT_CODE));
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
@@ -82,14 +69,9 @@ contract KilnTest is Test {
     }
 
     function mintDai(address usr, uint256 amt) internal {
-        hevm.store(
-            address(DAI),
-            keccak256(abi.encode(address(usr), uint256(2))),
-            bytes32(uint256(amt))
-        );
+        deal(DAI, usr, amt);
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);
     }
-
 
     function estimate(uint256 amtIn) internal returns (uint256 amtOut) {
         return quoter.quoteExactInput(path, amtIn);
@@ -271,7 +253,7 @@ contract KilnTest is Test {
 
         kiln.fire();
 
-        hevm.warp(block.timestamp + 6 hours);
+        skip(6 hours);
 
         kiln.fire();
     }
@@ -290,14 +272,14 @@ contract KilnTest is Test {
         swap(DAI, 10_000_000 * WAD);
 
         // make sure twap measures low MKR out amount at the beginning of the hour (by making small swap)
-        hevm.roll(block.number + 1);
+        vm.roll(block.number + 1);
         swap(DAI, WAD / 100);
 
         // let 1 hour almost pass
-        hevm.warp(block.timestamp + 1 hours - 1 seconds);
+        skip(1 hours - 1 seconds);
 
         // make sure twap measures low MKR out amount at the end of the hour (by making small swap)
-        hevm.roll(block.number + 1);
+        vm.roll(block.number + 1);
         swap(DAI, WAD / 100);
 
         // fire should fail for low MKR out amount
@@ -321,14 +303,14 @@ contract KilnTest is Test {
         kiln.file("yen", 80 * WAD / 100); // allow swap even if price fell by 20% vs twap
 
         // make sure twap measures regular MKR out amount at the beginning of the hour (by making small swap)
-        hevm.roll(block.number + 1);
+        vm.roll(block.number + 1);
         swap(DAI, WAD / 100);
 
         // let 1 hour almost pass
-        hevm.warp(block.timestamp + 1 hours - 1 seconds);
+        skip(1 hours - 1 seconds);
 
         // make sure twap measures regular MKR out amount at the end of the hour (by making small swap)
-        hevm.roll(block.number + 1);
+        vm.roll(block.number + 1);
         swap(DAI, WAD / 100);
 
         // fire should succeed for low yen before any price manipulation
