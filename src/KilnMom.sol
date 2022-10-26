@@ -29,6 +29,8 @@ contract KilnMom {
     address public owner;
     address public authority;
 
+    address public immutable dst;
+
     event SetOwner(address indexed newOwner);
     event SetAuthority(address indexed newAuthority);
     event Rug(address indexed who, address indexed dst);
@@ -43,7 +45,9 @@ contract KilnMom {
         _;
     }
 
-    constructor() {
+    constructor(address _dst) {
+        dst = _dst;
+        
         owner = msg.sender;
         emit SetOwner(msg.sender);
     }
@@ -72,8 +76,9 @@ contract KilnMom {
     }
 
     // Governance action without delay
-    function rug(address who, address dst) external auth {
-        RugLike(who).rug(dst);
-        emit Rug(who, dst);
+    function rug(address who) external auth {
+        address _dst = dst;
+        RugLike(who).rug(_dst);
+        emit Rug(who, _dst);
     }
 }

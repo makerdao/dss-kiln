@@ -53,7 +53,7 @@ contract KilnMomTest is Test {
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
 
-        mom = new KilnMom();
+        mom = new KilnMom(address(this));
         mom.setAuthority(address(new AuthorityMock()));
         kiln.rely(address(mom));
     }
@@ -97,7 +97,7 @@ contract KilnMomTest is Test {
 
         vm.expectEmit(true, true, false, false);
         emit Rug(address(kiln), address(this));
-        mom.rug(address(kiln), address(this));
+        mom.rug(address(kiln));
 
         assertEq(GemLike(DAI).balanceOf(address(kiln)), 0);
         assertEq(GemLike(DAI).balanceOf(address(mom)), 0);
@@ -113,7 +113,7 @@ contract KilnMomTest is Test {
         vm.prank(address(789));
         vm.expectEmit(true, false, false, false);
         emit Rug(address(kiln), address(this));
-        mom.rug(address(kiln), address(this));
+        mom.rug(address(kiln));
 
         assertEq(GemLike(DAI).balanceOf(address(kiln)), 0);
         assertEq(GemLike(DAI).balanceOf(address(mom)), 0);
@@ -123,6 +123,6 @@ contract KilnMomTest is Test {
     function testRugNonAuthed() public {
         vm.startPrank(address(456));
         vm.expectRevert("KilnMom/not-authorized");
-        mom.rug(address(kiln), address(this));
+        mom.rug(address(kiln));
     }
 }
