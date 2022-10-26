@@ -37,7 +37,7 @@ struct ExactInputParams {
 
 contract KilnUniV3 is KilnBase, TwapProduct {
     uint256 public scope; // [Seconds]  Time period for TWAP calculations
-    uint256 public yen;   // [WAD]      Relative part of the TWAP's price to insist on
+    uint256 public yen;   // [WAD]      Relative multiplier of the TWAP's price to insist on
     bytes   public path;  //            ABI-encoded UniV3 compatible path
 
     address public immutable uniV3Router;
@@ -46,8 +46,9 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     event File(bytes32 indexed what, bytes data);
 
     // @notice initialize a Uniswap V3 routing path contract
-    // @dev TWAP-relative trading is enabled by default. Fire will perform the trade
-    //      only when the amount of tokens received is better than the 1 hour average price.
+    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will 
+    //      perform the trade only when the amount of tokens received is equal or better than
+    //      the 1 hour average price.
     //      file("yen", 0) to disable TWAP trading and accept any output amount.
     // @param _sell the contract address of the token that will be sold
     // @param _buy  the contract address of the token that will be purchased
