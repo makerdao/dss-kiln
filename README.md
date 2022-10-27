@@ -38,7 +38,3 @@ file('yen', 90 * WAD / 100);
 //   Useful for quickly liquidating small lots against highly liquid pairs.
 file('yen', 0);
 ```
-
-
-
-
