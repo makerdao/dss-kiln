@@ -103,8 +103,8 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
         require(GemLike(sell).approve(uniV3Router, amount));
 
-        bytes memory _path = path;
-        uint256      _yen  = yen;
+        bytes   memory _path = path;
+        uint256        _yen  = yen;
 
         uint256 amountMin = (_yen != 0) ? quote(_path, amount, uint32(scope)) * _yen / WAD : 0;
 
