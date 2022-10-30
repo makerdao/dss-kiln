@@ -19,11 +19,11 @@ The KilnUniV3 implementation enables trading relative to a UniswapV3 price oracl
 
 The average price referred to is the multiplication product of single pool TWAP values for the given UniswapV3 routing path. As each TWAP value is not dependent on the actual swap amount, it does not incorporate price deterioration based on the total swap amount (aka price impact).
 
-##### `scope` (Default: `3600`)
+##### `scope` (Default: `3600`, i.e 1 hour)
 
 The number of seconds to quote average price.
 
-##### `yen` (Default: `1000000000000000000`)
+##### `yen` (Default: `1000000000000000000`, i.e WAD, or 100%)
 
 The amount of acceptable slippage per lot. By default, `yen` is set to `WAD`, which will require that a trade will only execute when the amount received is better than the average price over the past `scope` period. By lowering this value you can seek to trade at a better than average price, or by raising the value you can account for price impact or additional slippage.
 
@@ -35,6 +35,6 @@ file('yen', 103 * WAD / 100);
 file('yen', 90 * WAD / 100);
 
 // Disable the TWAP price calculations by setting `yen` to `0` via the `file` function.
-//   Useful for quickly liquidating small lots against highly liquid pairs.
+//   Useful for quickly liquidating small lots against highly liquid pairs (i.e "just dump at whatever price").
 file('yen', 0);
 ```
