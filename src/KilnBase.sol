@@ -91,7 +91,7 @@ abstract contract KilnBase {
         @dev Auth'ed function to withdraw unspent funds
         @param dst   Destination of the funds
     */
-    function rug(address dst) external auth {
+    function rug(address dst) external auth lock {
         uint256 amt = GemLike(sell).balanceOf(address(this));
         GemLike(sell).transfer(dst, amt);
         emit Rug(dst, amt);

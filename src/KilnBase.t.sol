@@ -20,16 +20,19 @@ import "forge-std/Test.sol";
 import "./KilnBase.sol";
 
 contract KilnMock is KilnBase {
-    bool public reenter = false;
+    bool public reenterFire = false;
+    bool public reenterRug  = false;
 
     constructor(address _sell, address _buy) KilnBase(_sell, _buy) {}
 
-    function setReenter() public {
-        reenter = true;
+    function setReenter(bool reenterFire_, bool reenterRug_) public {
+        reenterFire = reenterFire_;
+        reenterRug  = reenterRug_;
     }
 
     function _swap(uint256) internal override returns (uint256) {
-        if (reenter) this.fire();
+        if (reenterFire) this.fire();
+        if (reenterRug)  this.rug(address(this));
         return 0;
     }
 
@@ -173,7 +176,15 @@ contract KilnBaseTest is Test {
 
     function testFireReenter() public {
         mintDai(address(kiln), 50_000 * WAD);
-        kiln.setReenter();
+        kiln.setReenter({reenterFire_: true, reenterRug_: false});
+        vm.expectRevert("KilnBase/system-locked");
+        kiln.fire();
+    }
+
+    function testRugReenter() public {
+        mintDai(address(kiln), 50_000 * WAD);
+        kiln.rely(address(kiln));
+        kiln.setReenter({reenterFire_: false, reenterRug_: true});
         vm.expectRevert("KilnBase/system-locked");
         kiln.fire();
     }
