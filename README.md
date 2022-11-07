@@ -13,16 +13,28 @@ Strategies are employed for purchasing and sending tokens to a wallet, or the mo
 
 Once deployed, the Kiln contract should be topped up with the token that is to be sold, and the contract will permit permissionless calls that periodically sell one token for another, without the need for an intermediary.
 
-### Example Strategies
+#### KilnUniV3 TWAP Trading
 
-* `DssKilnUNIV3SaveStrategy`: Buy a particular token and transfer it to a wallet.
-  * This strategy can be used to buy tokens over time via Uniswap V3 and transferred to an external wallet.
-  * For example, a protocol may wish to buy WETH or it's own native token over time, and have those tokens returned to it's treasury.
+The KilnUniV3 implementation enables trading relative to a UniswapV3 price oracle. By default, the KilnUniV3 implementation will only buy tokens when it can trade at a price better than the previous 1 hour average. These parameters can be modified by filing new `scope` and `yen` values.
 
-* `DssKilnUNIV3BurnStrategy`: Buy a particular token and burn it.
-  * __Note: this strategy requres that the purchased token has a `burn()` function.__
-  * This strategy can be used to buy tokens over time via Uniswap V3 and the resulting tokens are burned.
-  * For example, a protocol may wish to buy and burn it's own native token over time.
+The average price referred to is the multiplication product of single pool TWAP values for the given UniswapV3 routing path. As each TWAP value is not dependent on the actual swap amount, it does not incorporate price deterioration based on the total swap amount (aka price impact).
 
-* `DssKilnUNIV2BurnStrategy`: A prototype burn strategy using Uniswap V2.
-  * __Note: this strategy is currently susceptible to slippage if pool liquidity is low, it is currently provided as an example integration only__
+##### `scope` (Default: `3600`, i.e 1 hour)
+
+The number of seconds to quote average price.
+
+##### `yen` (Default: `1000000000000000000`, i.e WAD, or 100%)
+
+The amount of acceptable slippage per lot. By default, `yen` is set to `WAD`, which will require that a trade will only execute when the amount received is better than the average price over the past `scope` period. By lowering this value you can seek to trade at a better than average price, or by raising the value you can account for price impact or additional slippage.
+
+```
+// Allow up to 3% slippage over TWAP average price.
+file('yen', 103 * WAD / 100);
+
+// Only trade when the trade can be executed for 10% less than the TWAP average.
+file('yen', 90 * WAD / 100);
+
+// Disable the TWAP price calculations by setting `yen` to `0` via the `file` function.
+//   Useful for quickly liquidating small lots against highly liquid pairs (i.e "just dump at whatever price").
+file('yen', 0);
+```
