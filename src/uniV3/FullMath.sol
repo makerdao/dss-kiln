@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Based on https://github.com/Uniswap/v3-core/blob/412d9b236a1e75a98568d49b1aeb21e3a1430544/contracts/libraries/FullMath.sol
-// Uniswap version - https://github.com/gelatodigital/g-uni-v1-core/blob/bea63422e2155242b051896b635508b7a99d2a1a/contracts/vendor/uniswap/FullMath.sol
+// Based on https://github.com/gelatodigital/g-uni-v1-core/blob/bea63422e2155242b051896b635508b7a99d2a1a/contracts/vendor/uniswap/FullMath.sol
+// Uniswap version - https://github.com/Uniswap/v3-core/blob/412d9b236a1e75a98568d49b1aeb21e3a1430544/contracts/libraries/FullMath.sol
 
 pragma solidity ^0.8.14;
 
