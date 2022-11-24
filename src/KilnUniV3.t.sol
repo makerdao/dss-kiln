@@ -122,7 +122,7 @@ contract KilnTest is Test {
 
     function testFileScopeTooLarge() public {
         vm.expectRevert("KilnUniV3/scope-overflow");
-        kiln.file("scope", uint256(type(uint32).max) + 1);
+        kiln.file("scope", uint32(type(int32).max) + 1);
     }
 
     function testFileBytesUnrecognized() public {

@@ -91,7 +91,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     function file(bytes32 what, uint256 data) public override auth {
         if      (what == "yen") yen = data;
         else if (what == "scope") {
-            require(data <= type(uint32).max, "KilnUniV3/scope-overflow");
+            require(data <= uint32(type(int32).max), "KilnUniV3/scope-overflow");
             scope = data;
         } else {
             super.file(what, data);
