@@ -25,7 +25,7 @@ The number of seconds to quote average price.
 
 ##### `yen` (Default: `1000000000000000000`, i.e WAD, or 100%)
 
-The amount of acceptable slippage per lot. By default, `yen` is set to `WAD`, which will require that a trade will only execute when the amount received is better than the average price over the past `scope` period. By lowering this value you can seek to trade at a better than average price, or by raising the value you can account for price impact or additional slippage.
+The amount of acceptable slippage per lot. By default, `yen` is set to `WAD`, which will require that a trade will only execute when the amount received is better than the average price over the past `scope` period. By raising this value you can seek to trade at a better than average price, or by lowering the value you can account for price impact or additional slippage.
 
 ```
 // Allow up to 3% slippage over TWAP average price.
