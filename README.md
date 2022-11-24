@@ -22,6 +22,7 @@ The average price referred to is the multiplication product of single pool TWAP 
 ##### `scope` (Default: `3600`, i.e 1 hour)
 
 The number of seconds to quote average price.
+Warning - a low `scope` increases the susceptibility to oracle manipulation attacks.
 
 ##### `yen` (Default: `1000000000000000000`, i.e WAD, or 100%)
 

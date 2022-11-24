@@ -120,6 +120,11 @@ contract KilnTest is Test {
         assertEq(kiln.scope(), 314);
     }
 
+    function testFileZeroScope() public {
+        vm.expectRevert("KilnUniV3/zero-scope");
+        kiln.file("scope", 0);
+    }
+
     function testFileScopeTooLarge() public {
         vm.expectRevert("KilnUniV3/scope-overflow");
         kiln.file("scope", uint32(type(int32).max) + 1);

@@ -85,12 +85,14 @@ contract KilnUniV3 is KilnBase, TwapProduct {
 
     /**
         @dev Auth'ed function to update yen, scope, or base contract derived values
+             Warning - a low `scope` increases the susceptibility to oracle manipulation attacks
         @param what   Tag of value to update
         @param data   Value to update
     */
     function file(bytes32 what, uint256 data) public override auth {
         if      (what == "yen") yen = data;
         else if (what == "scope") {
+            require(data > 0, "KilnUniV3/zero-scope");
             require(data <= uint32(type(int32).max), "KilnUniV3/scope-overflow");
             scope = data;
         } else {
