@@ -49,7 +49,6 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     // @dev TWAP-relative trading is enabled by default. With the initial values, fire will 
     //      perform the trade only when the amount of tokens received is equal or better than
     //      the 1 hour average price.
-    //      file("yen", 0) to disable TWAP trading and accept any output amount.
     // @param _sell          the contract address of the token that will be sold
     // @param _buy           the contract address of the token that will be purchased
     // @param _uniV3Router   the address of the current Uniswap V3 swap router
@@ -85,6 +84,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
 
     /**
         @dev Auth'ed function to update yen, scope, or base contract derived values
+             Warning - setting `yen` as 0 or another low value highly increases the susceptibility to oracle manipulation attacks
              Warning - a low `scope` increases the susceptibility to oracle manipulation attacks
         @param what   Tag of value to update
         @param data   Value to update

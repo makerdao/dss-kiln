@@ -27,6 +27,7 @@ Warning - a low `scope` increases the susceptibility to oracle manipulation atta
 ##### `yen` (Default: `1000000000000000000`, i.e WAD, or 100%)
 
 The amount of acceptable slippage per lot. By default, `yen` is set to `WAD`, which will require that a trade will only execute when the amount received is better than or the same as the average price over the past `scope` period. By raising this value you can seek to trade at a better than average price, or by lowering the value you can account for price impact or additional slippage.
+Warning - setting `yen` as 0 or another low value highly increases the susceptibility to oracle manipulation attacks
 
 ```
 // Allow up to 3% slippage over TWAP average price.
@@ -37,5 +38,6 @@ file('yen', 90 * WAD / 100);
 
 // Disable the TWAP price calculations by setting `yen` to `0` via the `file` function.
 //   Useful for quickly liquidating small lots against highly liquid pairs (i.e "just dump at whatever price").
+//   This should be used only in rare cases and under great caution, see warning above.
 file('yen', 0);
 ```
