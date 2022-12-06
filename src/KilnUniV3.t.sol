@@ -78,7 +78,7 @@ contract KilnTest is Test {
     }
 
     function swap(address gem, uint256 amount) internal {
-        require(GemLike(gem).approve(kiln.uniV3Router(), amount));
+        GemLike(gem).approve(kiln.uniV3Router(), amount);
 
         bytes memory _path;
         if (gem == DAI) {
