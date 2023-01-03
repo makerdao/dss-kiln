@@ -149,21 +149,10 @@ contract TwapProductTest is Test {
         assertEqApproxBPS(tpQuoterAmt, quoterAmt, 100); // Price impact for amtIn should be minimized
     }
 
-    function testZeroScope() public {
+    // using testFail as division by zero is not supported for vm.expectRevert
+    function testFailZeroScope() public {
         scope = 0 seconds;
-
-        uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
-        assertEqApproxBPS(tpQuoterAmt, quoterAmt, 500); // Note that there is still price impact for amtIn
-    }
-
-    function testZeroScopeSmallAmt() public {
-        amtIn = 1 * WAD / 100;
-        scope = 0 seconds;
-
-        uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
-        assertEqApproxBPS(tpQuoterAmt, quoterAmt, 100); // Price impact for amtIn should be minimized
+        tpQuoter.quote(path, amtIn, scope);
     }
 
     function testTooLargeScope() public {

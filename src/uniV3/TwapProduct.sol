@@ -63,22 +63,17 @@ contract TwapProduct {
 
     // https://github.com/Uniswap/v3-periphery/blob/51f8871aaef2263c8e8bbf4f3410880b6162cdea/contracts/libraries/OracleLibrary.sol#L16
     function _consult(UniswapV3PoolLike pool, uint32 scope) internal view returns (int24 arithmeticMeanTick) {
-        if (scope == 0) {
-            // Use current price
-            (, arithmeticMeanTick , , , , , ) = pool.slot0();
-        } else {
-            uint32[] memory secondsAgos = new uint32[](2);
-            secondsAgos[0] = scope;
-            secondsAgos[1] = 0;
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = scope;
+        secondsAgos[1] = 0;
 
-            (int56[] memory tickCumulatives, ) = pool.observe(secondsAgos);
+        (int56[] memory tickCumulatives, ) = pool.observe(secondsAgos);
 
-            int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
+        int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
 
-            arithmeticMeanTick = int24(tickCumulativesDelta / int56(int32(scope)));
-            // Always round to negative infinity
-            if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(int32(scope)) != 0)) arithmeticMeanTick--;
-        }
+        arithmeticMeanTick = int24(tickCumulativesDelta / int56(int32(scope)));
+        // Always round to negative infinity
+        if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(int32(scope)) != 0)) arithmeticMeanTick--;
     }
 
     // https://github.com/Uniswap/v3-periphery/blob/51f8871aaef2263c8e8bbf4f3410880b6162cdea/contracts/libraries/OracleLibrary.sol#L49

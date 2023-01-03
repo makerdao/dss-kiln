@@ -78,7 +78,7 @@ contract KilnTest is Test {
     }
 
     function swap(address gem, uint256 amount) internal {
-        require(GemLike(gem).approve(kiln.uniV3Router(), amount));
+        GemLike(gem).approve(kiln.uniV3Router(), amount);
 
         bytes memory _path;
         if (gem == DAI) {
@@ -120,9 +120,14 @@ contract KilnTest is Test {
         assertEq(kiln.scope(), 314);
     }
 
+    function testFileZeroScope() public {
+        vm.expectRevert("KilnUniV3/zero-scope");
+        kiln.file("scope", 0);
+    }
+
     function testFileScopeTooLarge() public {
         vm.expectRevert("KilnUniV3/scope-overflow");
-        kiln.file("scope", uint256(type(uint32).max) + 1);
+        kiln.file("scope", uint32(type(int32).max) + 1);
     }
 
     function testFileBytesUnrecognized() public {
