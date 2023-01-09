@@ -24,11 +24,16 @@ interface AuthorityLike {
     function canCall(address src, address dst, bytes4 sig) external view returns (bool);
 }
 
+interface VatLike {
+    function live() external view returns (uint256);
+}
+
 // Bypass governance delay to disable a kiln instance
 contract KilnMom {
     address public owner;
     address public authority;
 
+    address public immutable vat;
     address public immutable dst;
 
     event SetOwner(address indexed newOwner);
@@ -40,12 +45,8 @@ contract KilnMom {
         _;
     }
 
-    modifier auth {
-        require(isAuthorized(msg.sender, msg.sig), "KilnMom/not-authorized");
-        _;
-    }
-
-    constructor(address _dst) {
+    constructor(address _vat, address _dst) {
+        vat = _vat;
         dst = _dst;
         
         owner = msg.sender;
@@ -76,7 +77,12 @@ contract KilnMom {
     }
 
     // Governance action without delay
-    function rug(address who) external auth {
+    function rug(address who) external {
+        require(
+            isAuthorized(msg.sender, msg.sig) || VatLike(vat).live() == 0,
+            "KilnMom/not-authorized"
+        );
+
         address _dst = dst;
         RugLike(who).rug(_dst);
         emit Rug(who, _dst);

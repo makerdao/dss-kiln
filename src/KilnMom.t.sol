@@ -34,12 +34,17 @@ contract AuthorityMock {
     }
 }
 
+interface VatLike {
+    function cage() external;
+}
+
 contract KilnMomTest is Test {
     KilnMock kiln;
     KilnMom mom;
 
     address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant MKR = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
+    address constant VAT = 0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B;
 
     uint256 constant WAD = 1e18;
 
@@ -53,7 +58,7 @@ contract KilnMomTest is Test {
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
 
-        mom = new KilnMom(address(this));
+        mom = new KilnMom(VAT, address(this));
         mom.setAuthority(address(new AuthorityMock()));
         kiln.rely(address(mom));
     }
@@ -112,6 +117,26 @@ contract KilnMomTest is Test {
 
         vm.prank(address(789));
         vm.expectEmit(true, false, false, false);
+        emit Rug(address(kiln), address(this));
+        mom.rug(address(kiln));
+
+        assertEq(GemLike(DAI).balanceOf(address(kiln)), 0);
+        assertEq(GemLike(DAI).balanceOf(address(mom)), 0);
+        assertEq(GemLike(DAI).balanceOf(address(this)), 50_000 * WAD);
+    }
+
+    function testRugVatNotLive() public {
+        mintDai(address(kiln), 50_000 * WAD);
+
+        assertEq(kiln.sell(), DAI);
+        assertEq(GemLike(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+
+        // become Vat owner and cage it
+        vm.store(VAT, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
+        VatLike(VAT).cage();
+
+        vm.startPrank(address(456));
+        vm.expectEmit(true, true, false, false);
         emit Rug(address(kiln), address(this));
         mom.rug(address(kiln));
 
