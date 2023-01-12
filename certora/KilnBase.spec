@@ -11,7 +11,6 @@ methods {
 }
 
 // Verify fallback always reverts
-// In this case is pretty important as we are filtering it out from some invariants/rules
 rule fallback_revert(method f) filtered { f -> f.isFallback } {
     env e;
 
@@ -89,4 +88,39 @@ rule deny_revert(address usr) {
     assert(revert2 => lastReverted, "revert2 failed");
 
     assert(lastReverted => revert1 || revert2, "Revert rules are not covering all the cases");
+}
+
+// Verify correct storage changes for not reverting file
+rule file(bytes32 what, uint256 data) {
+    env e;
+
+    uint256 lotBefore = lot();
+    uint256 hopBefore = hop();
+
+    file(e, what, data);
+
+    assert(what == 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lot() == data, "file did not set lot as expected");
+    assert(what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lot() == lotBefore, "file did not keep unchanged lot");
+    assert(what == 0x686f700000000000000000000000000000000000000000000000000000000000 => hop() == data, "file did not set hop as expected");
+    assert(what != 0x686f700000000000000000000000000000000000000000000000000000000000 => hop() == hopBefore, "file did not keep unchanged hop");
+}
+
+// Verify revert rules on file
+rule file_revert(bytes32 what, uint256 data) {
+    env e;
+
+    uint256 ward = wards(e.msg.sender);
+
+    file@withrevert(e, what, data);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = ward != 1;
+    bool revert3 = what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 && // what is not "lot"
+                   what != 0x686f700000000000000000000000000000000000000000000000000000000000;   // what is not "hop"
+
+    assert(revert1 => lastReverted, "revert1 failed");
+    assert(revert2 => lastReverted, "revert2 failed");
+    assert(revert3 => lastReverted, "revert3 failed");
+
+    assert(lastReverted => revert1 || revert2 || revert3, "Revert rules are not covering all the cases");
 }
