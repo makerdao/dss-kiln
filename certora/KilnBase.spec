@@ -1,5 +1,8 @@
 // KilnBase.spec
 
+using Dai as dai
+using KilnMock as kiln
+
 methods {
     wards(address) returns (uint256) envfree
     lot() returns (uint256) envfree
@@ -8,6 +11,18 @@ methods {
     locked() returns (uint256) envfree
     sell() returns (address) envfree
     buy() returns (address) envfree
+    dai.totalSupply() returns (uint256) envfree
+    dai.balanceOf(address) returns (uint256) envfree
+}
+
+ghost lockedGhost() returns uint256;
+
+hook Sstore locked uint256 n_locked STORAGE {
+    havoc lockedGhost assuming lockedGhost@new() == n_locked;
+}
+
+hook Sload uint256 value locked STORAGE {
+    require lockedGhost() == value;
 }
 
 // Verify fallback always reverts
@@ -123,4 +138,27 @@ rule file_revert(bytes32 what, uint256 data) {
     assert(revert3 => lastReverted, "revert3 failed");
 
     assert(lastReverted => revert1 || revert2 || revert3, "Revert rules are not covering all the cases");
+}
+
+// Verify rug function on happy path
+rule rug(address dst) {
+    env e;
+
+    require(dai == sell());
+    require(dst != kiln);
+
+    uint256 balanceKilnBefore = dai.balanceOf(kiln);
+    uint256 balanceDstBefore = dai.balanceOf(dst);
+    uint256 supplyBefore = dai.totalSupply();
+    bool dstSameAsKiln = kiln == dst;
+
+    rug(e, dst);
+
+    uint256 balanceKilnAfter = dai.balanceOf(kiln);
+    uint256 balanceDstAfter = dai.balanceOf(dst);
+    uint256 supplyAfter = dai.totalSupply();
+
+    assert(supplyAfter == supplyBefore, "supply did not remain as expected");
+    assert(!dstSameAsKiln => balanceKilnAfter == 0 && balanceKilnBefore == (balanceDstAfter - balanceDstBefore), "balance did not change as expected");
+    assert(dstSameAsKiln => balanceKilnAfter == balanceKilnBefore, "balance changed");
 }
