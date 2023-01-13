@@ -145,7 +145,6 @@ rule rug(address dst) {
     env e;
 
     require(dai == sell());
-    require(dst != kiln);
 
     uint256 balanceKilnBefore = dai.balanceOf(kiln);
     uint256 balanceDstBefore = dai.balanceOf(dst);
