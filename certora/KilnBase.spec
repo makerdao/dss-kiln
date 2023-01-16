@@ -116,10 +116,13 @@ rule file(bytes32 what, uint256 data) {
 
     file(e, what, data);
 
-    assert(what == 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lot() == data, "file did not set lot as expected");
-    assert(what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lot() == lotBefore, "file did not keep unchanged lot");
-    assert(what == 0x686f700000000000000000000000000000000000000000000000000000000000 => hop() == data, "file did not set hop as expected");
-    assert(what != 0x686f700000000000000000000000000000000000000000000000000000000000 => hop() == hopBefore, "file did not keep unchanged hop");
+    uint256 lotAfter = lot();
+    uint256 hopAfter = hop();
+
+    assert(what == 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == data, "file did not set lot as expected");
+    assert(what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == lotBefore, "file did not keep unchanged lot");
+    assert(what == 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == data, "file did not set hop as expected");
+    assert(what != 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == hopBefore, "file did not keep unchanged hop");
 }
 
 // Verify revert rules on file
