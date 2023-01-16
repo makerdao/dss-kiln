@@ -176,12 +176,14 @@ rule rug_revert(address dst) {
     uint256 balanceKiln = dai.balanceOf(currentContract);
     uint256 balanceDst = dai.balanceOf(dst);
 
+    bool dstSameAsKiln = currentContract == dst;
+
     rug@withrevert(e, dst);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = ward != 1;
     bool revert3 = locked != 0;
-    bool revert5 = balanceKiln + balanceDst > max_uint256;
+    bool revert4 = !dstSameAsKiln && balanceKiln + balanceDst > max_uint256;
 
     assert(revert1 => lastReverted, "revert1 failed");
     assert(revert2 => lastReverted, "revert2 failed");
