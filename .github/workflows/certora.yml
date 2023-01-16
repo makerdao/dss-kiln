@@ -11,10 +11,6 @@ jobs:
       matrix:
         kiln:
           - base
-        solc:
-          - 0.8.14
-          - 0.5.12
-          - 0.4.18
 
     steps:
       - name: Checkout
@@ -35,7 +31,10 @@ jobs:
         run: pip3 install solc-select
 
       - name: Solc Select
-        run: solc-select install ${{ matrix.solc }}
+        run: |
+          solc-select install 0.8.14
+          solc-select install 0.5.12
+          solc-select install 0.4.18
 
       - name: Install Certora
         run: pip3 install certora-cli
