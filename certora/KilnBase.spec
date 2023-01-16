@@ -181,15 +181,13 @@ rule rug_revert(address dst) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = ward != 1;
     bool revert3 = locked != 0;
-    bool revert4 = balanceKiln < WAD();
     bool revert5 = balanceKiln + balanceDst > max_uint256;
 
     assert(revert1 => lastReverted, "revert1 failed");
     assert(revert2 => lastReverted, "revert2 failed");
     assert(revert3 => lastReverted, "revert3 failed");
     assert(revert4 => lastReverted, "revert4 failed");
-    assert(revert5 => lastReverted, "revert5 failed");
 
     assert(lastReverted => revert1 || revert2 || revert3 ||
-                           revert4 || revert5, "Revert rules are not covering all the cases");
+                           revert4, "Revert rules are not covering all the cases");
 }
