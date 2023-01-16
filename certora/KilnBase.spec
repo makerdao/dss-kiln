@@ -173,16 +173,16 @@ rule rug_revert(address dst) {
     uint256 ward = wards(e.msg.sender);
     uint256 locked = lockedGhost();
 
-    uint256 balanceKilnBefore = dai.balanceOf(currentContract);
-    uint256 balanceDstBefore = dai.balanceOf(dst);
+    uint256 balanceKiln = dai.balanceOf(currentContract);
+    uint256 balanceDst = dai.balanceOf(dst);
 
     rug@withrevert(e, dst);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = ward != 1;
     bool revert3 = locked != 0;
-    bool revert4 = balanceKilnBefore < WAD();
-    bool revert5 = to_mathint(balanceKilnBefore) + to_mathint(balanceDstBefore) > max_uint256;
+    bool revert4 = balanceKiln < WAD();
+    bool revert5 = to_mathint(balanceKiln) + to_mathint(balanceDst) > max_uint256;
 
     assert(revert1 => lastReverted, "revert1 failed");
     assert(revert2 => lastReverted, "revert2 failed");
