@@ -178,9 +178,6 @@ rule rug_revert(address dst) {
 
     rug@withrevert(e, dst);
 
-    uint256 balanceKilnAfter = dai.balanceOf(currentContract);
-    uint256 balanceDstAfter = dai.balanceOf(dst);
-
     bool revert1 = e.msg.value > 0;
     bool revert2 = ward != 1;
     bool revert3 = locked != 0;
