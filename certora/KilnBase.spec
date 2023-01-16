@@ -182,7 +182,7 @@ rule rug_revert(address dst) {
     bool revert2 = ward != 1;
     bool revert3 = locked != 0;
     bool revert4 = balanceKilnBefore < WAD();
-    bool revert5 = balanceKilnBefore + balanceDstBefore > max_uint256;
+    bool revert5 = to_mathint(balanceKilnBefore) + to_mathint(balanceDstBefore) > max_uint256;
 
     assert(revert1 => lastReverted, "revert1 failed");
     assert(revert2 => lastReverted, "revert2 failed");
