@@ -1,6 +1,7 @@
 // KilnBase.spec
 
 using Dai as dai
+using DSToken as mkr
 
 methods {
     wards(address) returns (uint256) envfree
