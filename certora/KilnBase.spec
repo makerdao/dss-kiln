@@ -1,7 +1,6 @@
 // KilnBase.spec
 
 using Dai as dai
-using KilnMock as kiln
 
 methods {
     wards(address) returns (uint256) envfree
@@ -14,6 +13,8 @@ methods {
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
 }
+
+definition WAD() returns uint256 = 10^18;
 
 ghost lockedGhost() returns uint256;
 
@@ -146,18 +147,51 @@ rule rug(address dst) {
 
     require(dai == sell());
 
-    uint256 balanceKilnBefore = dai.balanceOf(kiln);
+    uint256 balanceKilnBefore = dai.balanceOf(currentContract);
     uint256 balanceDstBefore = dai.balanceOf(dst);
     uint256 supplyBefore = dai.totalSupply();
-    bool dstSameAsKiln = kiln == dst;
+    bool dstSameAsKiln = currentContract == dst;
 
     rug(e, dst);
 
-    uint256 balanceKilnAfter = dai.balanceOf(kiln);
+    uint256 balanceKilnAfter = dai.balanceOf(currentContract);
     uint256 balanceDstAfter = dai.balanceOf(dst);
     uint256 supplyAfter = dai.totalSupply();
 
     assert(supplyAfter == supplyBefore, "supply did not remain as expected");
     assert(!dstSameAsKiln => balanceKilnAfter == 0 && balanceKilnBefore == (balanceDstAfter - balanceDstBefore), "balance did not change as expected");
     assert(dstSameAsKiln => balanceKilnAfter == balanceKilnBefore, "balance changed");
+}
+
+// Verify rug function on reverts
+rule rug_revert(address dst) {
+    env e;
+
+    require(dai == sell());
+
+    uint256 ward = wards(e.msg.sender);
+    uint256 locked = lockedGhost();
+
+    uint256 balanceKilnBefore = dai.balanceOf(currentContract);
+    uint256 balanceDstBefore = dai.balanceOf(dst);
+
+    rug@withrevert(e, dst);
+
+    uint256 balanceKilnAfter = dai.balanceOf(currentContract);
+    uint256 balanceDstAfter = dai.balanceOf(dst);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = ward != 1;
+    bool revert3 = locked != 0;
+    bool revert4 = balanceKilnBefore < WAD();
+    bool revert5 = balanceKilnBefore + balanceDstBefore > max_uint256;
+
+    assert(revert1 => lastReverted, "revert1 failed");
+    assert(revert2 => lastReverted, "revert2 failed");
+    assert(revert3 => lastReverted, "revert3 failed");
+    assert(revert4 => lastReverted, "revert4 failed");
+    assert(revert5 => lastReverted, "revert5 failed");
+
+    assert(lastReverted => revert1 || revert2 || revert3 ||
+                           revert4 || revert5, "Revert rules are not covering all the cases");
 }
