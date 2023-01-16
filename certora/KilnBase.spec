@@ -15,8 +15,6 @@ methods {
     dai.balanceOf(address) returns (uint256) envfree
 }
 
-definition WAD() returns uint256 = 10^18;
-
 ghost lockedGhost() returns uint256;
 
 hook Sstore locked uint256 n_locked STORAGE {
