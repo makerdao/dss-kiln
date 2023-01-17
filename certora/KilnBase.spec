@@ -53,6 +53,7 @@ rule rely(address usr) {
     assert(wardAfter == 1, "rely did not set wards as expected");
     assert(wardOtherAfter == wardOtherBefore, "rely affected other wards which was not expected");
 }
+
 // Verify revert rules on rely
 rule rely_revert(address usr) {
     env e;
@@ -88,6 +89,7 @@ rule deny(address usr) {
     assert(wardAfter == 0, "deny did not set wards as expected");
     assert(wardOtherAfter == wardOtherBefore, "deny affected other wards which was not expected");
 }
+
 // Verify revert rules on deny
 rule deny_revert(address usr) {
     env e;
@@ -143,7 +145,7 @@ rule file_revert(bytes32 what, uint256 data) {
     assert(lastReverted => revert1 || revert2 || revert3, "Revert rules are not covering all the cases");
 }
 
-// Verify rug function on happy path
+// Verify correct storage changes for not reverting rug
 rule rug(address dst) {
     env e;
 
@@ -165,7 +167,7 @@ rule rug(address dst) {
     assert(dstSameAsKiln => balanceKilnAfter == balanceKilnBefore, "balance changed");
 }
 
-// Verify rug function on reverts
+// Verify revert rules on rug
 rule rug_revert(address dst) {
     env e;
 
