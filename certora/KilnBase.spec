@@ -2,6 +2,7 @@
 
 using Dai as dai
 using DSToken as mkr
+using MockAuthority as authority
 
 methods {
     wards(address) returns (uint256) envfree
@@ -13,6 +14,8 @@ methods {
     buy() returns (address) envfree
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
+    mkr.totalSupply() returns (uint256) envfree
+    mkr.balanceOf(address) returns (uint256) envfree
 }
 
 ghost lockedGhost() returns uint256;
@@ -195,4 +198,33 @@ rule rug_revert(address dst) {
 
     assert(lastReverted => revert1 || revert2 || revert3 ||
                            revert4, "Revert rules are not covering all the cases");
+}
+
+// Verify correct storage changes for not reverting fire
+rule fire() {
+    env e;
+
+    require(dai == sell());
+    require(mkr == buy());
+
+    uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
+    uint256 mkrBalanceKilnBefore = mkr.balanceOf(currentContract);
+    uint256 daiSupplyBefore = dai.totalSupply();
+    uint256 mkrSupplyBefore = mkr.totalSupply();
+    uint256 lot = lot();
+
+    fire(e);
+
+    uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
+    uint256 mkrBalanceKilnAfter = mkr.balanceOf(currentContract);
+    uint256 daiSupplyAfter = dai.totalSupply();
+    uint256 mkrSupplyAfter = mkr.totalSupply();
+    uint256 zzzAfter = zzz();
+
+    assert(daiSupplyAfter == daiSupplyBefore, "dai supply did not remain as expected");
+    assert(mkrSupplyAfter == mkrSupplyBefore, "mkr supply did not remain as expected");
+    assert(daiBalanceKilnBefore > lot => daiBalanceKilnAfter == (daiBalanceKilnBefore - lot), "dai balance did not change as expected");
+    assert(daiBalanceKilnBefore < lot => daiBalanceKilnAfter == 0, "dai balance did not change as expected");
+    assert(zzzAfter == e.block.timestamp, "zzz did not change as expected");
+    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore, "mkr balance did not change as expected");
 }
