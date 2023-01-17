@@ -34,6 +34,7 @@ jobs:
         run: |
           solc-select install 0.8.14
           solc-select install 0.5.12
+          solc-select install 0.6.12
           solc-select install 0.4.18
 
       - name: Install Certora
