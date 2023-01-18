@@ -226,14 +226,15 @@ rule fire() {
     uint256 mkrSupplyAfter = mkr.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore,                                     "assert 1 failed");
-    assert(mkrSupplyAfter == mkrSupplyBefore,                                     "assert 2 failed");
+    assert(daiSupplyAfter == daiSupplyBefore,                                       "assert 1 failed");
     assert(daiBalanceKilnBefore > lot =>
             daiBalanceKilnAfter == (daiBalanceKilnBefore - lot) &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + lot),                  "assert 3 failed");
-    assert(daiBalanceKilnBefore < lot =>
+            daiBalancePoolAfter == (daiBalancePoolBefore + lot) &&
+            mkrSupplyAfter      == (mkrSupplyBefore - lot),                         "assert 2 failed");
+    assert(daiBalanceKilnBefore <= lot =>
             daiBalanceKilnAfter == 0 &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + daiBalanceKilnBefore), "assert 4 failed");
-    assert(zzzAfter == e.block.timestamp,                                         "assert 5 failed");
-    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                           "assert 6 failed");
+            daiBalancePoolAfter == (daiBalancePoolBefore + daiBalanceKilnBefore) &&
+            mkrSupplyAfter      == (mkrSupplyBefore -daiBalanceKilnBefore),         "assert 3 failed");
+    assert(zzzAfter == e.block.timestamp,                                           "assert 4 failed");
+    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 5 failed");
 }

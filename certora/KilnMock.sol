@@ -19,8 +19,8 @@ pragma solidity ^0.8.14;
 import {KilnBase, GemLike} from "../src/KilnBase.sol";
 
 interface GemMock is GemLike {
-    function mint(address,uint) external;
     function burn(uint256) external;
+    function transferFrom(address, address, uint256) external returns (bool);
 }
 
 contract KilnMock is KilnBase {
@@ -39,7 +39,7 @@ contract KilnMock is KilnBase {
 
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
         GemMock(sell).transfer(pool, amount);
-        GemMock(buy).mint(address(this), amount);
+        GemMock(buy).transferFrom(pool, address(this), amount);
         swapped = amount;
     }
 
