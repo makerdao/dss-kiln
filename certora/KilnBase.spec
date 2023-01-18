@@ -213,6 +213,7 @@ rule fire() {
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
     uint256 daiBalancePoolBefore = dai.balanceOf(pool);
     uint256 mkrBalanceKilnBefore = mkr.balanceOf(currentContract);
+    uint256 mkrBalancePoolBefore = mkr.balanceOf(pool);
     uint256 daiSupplyBefore = dai.totalSupply();
     uint256 mkrSupplyBefore = mkr.totalSupply();
     uint256 lot = lot();
@@ -222,6 +223,7 @@ rule fire() {
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
     uint256 daiBalancePoolAfter = dai.balanceOf(pool);
     uint256 mkrBalanceKilnAfter = mkr.balanceOf(currentContract);
+    uint256 mkrBalancePoolAfter = mkr.balanceOf(pool);
     uint256 daiSupplyAfter = dai.totalSupply();
     uint256 mkrSupplyAfter = mkr.totalSupply();
     uint256 zzzAfter = zzz();
@@ -230,11 +232,13 @@ rule fire() {
     assert(daiBalanceKilnBefore > lot =>
             daiBalanceKilnAfter == (daiBalanceKilnBefore - lot) &&
             daiBalancePoolAfter == (daiBalancePoolBefore + lot) &&
+            mkrBalancePoolAfter == (mkrBalancePoolBefore - lot) &&
             mkrSupplyAfter      == (mkrSupplyBefore - lot),                         "assert 2 failed");
     assert(daiBalanceKilnBefore <= lot =>
             daiBalanceKilnAfter == 0 &&
             daiBalancePoolAfter == (daiBalancePoolBefore + daiBalanceKilnBefore) &&
-            mkrSupplyAfter      == (mkrSupplyBefore -daiBalanceKilnBefore),         "assert 3 failed");
+            mkrBalancePoolAfter == (mkrBalancePoolBefore - daiBalanceKilnBefore) &&
+            mkrSupplyAfter      == (mkrSupplyBefore - daiBalanceKilnBefore),        "assert 3 failed");
     assert(zzzAfter == e.block.timestamp,                                           "assert 4 failed");
     assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 5 failed");
 }
