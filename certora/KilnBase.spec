@@ -242,3 +242,38 @@ rule fire() {
     assert(zzzAfter == e.block.timestamp,                                           "assert 4 failed");
     assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 5 failed");
 }
+
+// Verify revert rules on fire
+rule fire_revert() {
+    env e;
+
+    require(dai  == sell());
+    require(mkr  == buy());
+    require(pool == pool());
+
+    uint256 locked = lockedGhost();
+
+    uint256 daiBalanceKiln = dai.balanceOf(currentContract);
+    uint256 daiBalancePool = dai.balanceOf(pool);
+    uint256 mkrBalanceKiln = mkr.balanceOf(currentContract);
+    uint256 zzz = zzz();
+    uint256 hop = hop();
+    uint256 lot = lot();
+
+    fire@withrevert(e);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = locked != 0;
+    bool revert3 = e.block.timestamp < zzz + hop;
+    bool revert4 = daiBalanceKiln > lot && lot == 0;
+    bool revert5 = daiBalanceKiln < lot && daiBalanceKiln == 0;
+
+    assert(revert1 => lastReverted, "revert1 failed");
+    assert(revert2 => lastReverted, "revert2 failed");
+    assert(revert3 => lastReverted, "revert3 failed");
+    assert(revert4 => lastReverted, "revert4 failed");
+    assert(revert5 => lastReverted, "revert5 failed");
+
+    assert(lastReverted => revert1 || revert2 || revert3 ||
+                           revert4 || revert5, "Revert rules are not covering all the cases");
+}
