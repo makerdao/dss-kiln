@@ -221,10 +221,10 @@ rule fire() {
     uint256 mkrSupplyAfter = mkr.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore, "dai supply did not remain as expected");
-    assert(mkrSupplyAfter == mkrSupplyBefore, "mkr supply did not remain as expected");
-    assert(daiBalanceKilnBefore > lot => daiBalanceKilnAfter == (daiBalanceKilnBefore - lot), "dai balance did not change as expected");
-    assert(daiBalanceKilnBefore < lot => daiBalanceKilnAfter == 0, "dai balance did not change as expected");
-    assert(zzzAfter == e.block.timestamp, "zzz did not change as expected");
-    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore, "mkr balance did not change as expected");
+    assert(daiSupplyAfter == daiSupplyBefore,                                                 "assert 1 failed");
+    assert(mkrSupplyAfter == mkrSupplyBefore,                                                 "assert 2 failed");
+    assert(daiBalanceKilnBefore > lot => daiBalanceKilnAfter == (daiBalanceKilnBefore - lot), "assert 3 failed");
+    assert(daiBalanceKilnBefore < lot => daiBalanceKilnAfter == 0,                            "assert 4 failed");
+    assert(zzzAfter == e.block.timestamp,                                                     "assert 5 failed");
+    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                                       "assert 6 failed");
 }
