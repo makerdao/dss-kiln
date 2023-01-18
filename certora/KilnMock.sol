@@ -24,13 +24,21 @@ interface GemMock is GemLike {
 }
 
 contract KilnMock is KilnBase {
+
+    address public immutable pool;
+
     constructor(
         address _sell,
-        address _buy
-    ) KilnBase(_sell, _buy) {}
+        address _buy,
+        address _pool
+    )
+        KilnBase(_sell, _buy)
+    {
+        pool = _pool;
+    }
 
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
-        GemMock(sell).transfer(address(123), amount);
+        GemMock(sell).transfer(pool, amount);
         GemMock(buy).mint(address(this), amount);
         swapped = amount;
     }

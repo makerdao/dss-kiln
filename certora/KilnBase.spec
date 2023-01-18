@@ -3,6 +3,7 @@
 using Dai as dai
 using DSToken as mkr
 using MockAuthority as authority
+using PoolMock as pool
 
 methods {
     wards(address) returns (uint256) envfree
@@ -12,6 +13,7 @@ methods {
     locked() returns (uint256) envfree
     sell() returns (address) envfree
     buy() returns (address) envfree
+    pool() returns (address) envfree
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
     mkr.totalSupply() returns (uint256) envfree
@@ -204,10 +206,12 @@ rule rug_revert(address dst) {
 rule fire() {
     env e;
 
-    require(dai == sell());
-    require(mkr == buy());
+    require(dai  == sell());
+    require(mkr  == buy());
+    require(pool == pool());
 
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
+    uint256 daiBalancePoolBefore = dai.balanceOf(pool);
     uint256 mkrBalanceKilnBefore = mkr.balanceOf(currentContract);
     uint256 daiSupplyBefore = dai.totalSupply();
     uint256 mkrSupplyBefore = mkr.totalSupply();
@@ -216,15 +220,20 @@ rule fire() {
     fire(e);
 
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
+    uint256 daiBalancePoolAfter = dai.balanceOf(pool);
     uint256 mkrBalanceKilnAfter = mkr.balanceOf(currentContract);
     uint256 daiSupplyAfter = dai.totalSupply();
     uint256 mkrSupplyAfter = mkr.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore,                                                 "assert 1 failed");
-    assert(mkrSupplyAfter == mkrSupplyBefore,                                                 "assert 2 failed");
-    assert(daiBalanceKilnBefore > lot => daiBalanceKilnAfter == (daiBalanceKilnBefore - lot), "assert 3 failed");
-    assert(daiBalanceKilnBefore < lot => daiBalanceKilnAfter == 0,                            "assert 4 failed");
-    assert(zzzAfter == e.block.timestamp,                                                     "assert 5 failed");
-    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                                       "assert 6 failed");
+    assert(daiSupplyAfter == daiSupplyBefore,                                     "assert 1 failed");
+    assert(mkrSupplyAfter == mkrSupplyBefore,                                     "assert 2 failed");
+    assert(daiBalanceKilnBefore > lot =>
+            daiBalanceKilnAfter == (daiBalanceKilnBefore - lot) &&
+            daiBalancePoolAfter == (daiBalancePoolBefore + lot),                  "assert 3 failed");
+    assert(daiBalanceKilnBefore < lot =>
+            daiBalanceKilnAfter == 0 &&
+            daiBalancePoolAfter == (daiBalancePoolBefore + daiBalanceKilnBefore), "assert 4 failed");
+    assert(zzzAfter == e.block.timestamp,                                         "assert 5 failed");
+    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                           "assert 6 failed");
 }
