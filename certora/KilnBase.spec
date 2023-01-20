@@ -1,7 +1,7 @@
 // KilnBase.spec
 
 using Dai as dai
-using DSToken as mkr
+using DSToken as token
 using MockAuthority as authority
 using PoolMock as pool
 
@@ -16,11 +16,11 @@ methods {
     pool() returns (address) envfree
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
-    mkr.authority() returns (address) envfree
-    mkr.owner() returns (address) envfree
-    mkr.stopped() returns (bool) envfree
-    mkr.totalSupply() returns (uint256) envfree
-    mkr.balanceOf(address) returns (uint256) envfree
+    token.authority() returns (address) envfree
+    token.owner() returns (address) envfree
+    token.stopped() returns (bool) envfree
+    token.totalSupply() returns (uint256) envfree
+    token.balanceOf(address) returns (uint256) envfree
 }
 
 definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
@@ -212,15 +212,15 @@ rule fire() {
     env e;
 
     require(dai  == sell());
-    require(mkr  == buy());
+    require(token  == buy());
     require(pool == pool());
 
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
     uint256 daiBalancePoolBefore = dai.balanceOf(pool);
-    uint256 mkrBalanceKilnBefore = mkr.balanceOf(currentContract);
-    uint256 mkrBalancePoolBefore = mkr.balanceOf(pool);
+    uint256 tokenBalanceKilnBefore = token.balanceOf(currentContract);
+    uint256 tokenBalancePoolBefore = token.balanceOf(pool);
     uint256 daiSupplyBefore = dai.totalSupply();
-    uint256 mkrSupplyBefore = mkr.totalSupply();
+    uint256 tokenSupplyBefore = token.totalSupply();
     uint256 lot = lot();
 
     uint256 minAmt = min(daiBalanceKilnBefore, lot);
@@ -229,19 +229,19 @@ rule fire() {
 
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
     uint256 daiBalancePoolAfter = dai.balanceOf(pool);
-    uint256 mkrBalanceKilnAfter = mkr.balanceOf(currentContract);
-    uint256 mkrBalancePoolAfter = mkr.balanceOf(pool);
+    uint256 tokenBalanceKilnAfter = token.balanceOf(currentContract);
+    uint256 tokenBalancePoolAfter = token.balanceOf(pool);
     uint256 daiSupplyAfter = dai.totalSupply();
-    uint256 mkrSupplyAfter = mkr.totalSupply();
+    uint256 tokenSupplyAfter = token.totalSupply();
     uint256 zzzAfter = zzz();
 
     assert(daiSupplyAfter == daiSupplyBefore,                                       "assert 1 failed");
     assert( daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt) &&
             daiBalancePoolAfter == (daiBalancePoolBefore + minAmt) &&
-            mkrBalancePoolAfter == (mkrBalancePoolBefore - minAmt) &&
-            mkrSupplyAfter      == (mkrSupplyBefore - minAmt),                      "assert 2 failed");
+            tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt) &&
+            tokenSupplyAfter      == (tokenSupplyBefore - minAmt),                      "assert 2 failed");
     assert(zzzAfter == e.block.timestamp,                                           "assert 3 failed");
-    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 4 failed");
+    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,                             "assert 4 failed");
 }
 
 // Verify revert rules on fire
@@ -249,21 +249,21 @@ rule fire_revert() {
     env e;
 
     require(dai  == sell());
-    require(mkr  == buy());
-    require(authority == mkr.authority());
+    require(token  == buy());
+    require(authority == token.authority());
     require(pool == pool());
 
     uint256 locked = lockedGhost();
 
-    bool stop = mkr.stopped();
-    address tokenOwner = mkr.owner();
-    bool canCall = authority.canCall(e, currentContract, mkr, 0x40c10f1900000000000000000000000000000000000000000000000000000000);
+    bool stop = token.stopped();
+    address tokenOwner = token.owner();
+    bool canCall = authority.canCall(e, currentContract, token, 0x40c10f1900000000000000000000000000000000000000000000000000000000);
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
-    uint256 mkrBalanceKiln = mkr.balanceOf(currentContract);
-    uint256 mkrBalancePool = mkr.balanceOf(pool);
-    uint256 mkrSupply = mkr.totalSupply();
+    uint256 tokenBalanceKiln = token.balanceOf(currentContract);
+    uint256 tokenBalancePool = token.balanceOf(pool);
+    uint256 tokenSupply = token.totalSupply();
     uint256 zzz = zzz();
     uint256 hop = hop();
     uint256 lot = lot();
@@ -277,13 +277,13 @@ rule fire_revert() {
     bool revert3  = e.block.timestamp < zzz + hop;
     bool revert4  = minAmt == 0;
     bool revert5  = daiBalancePool + minAmt > max_uint256;
-    bool revert6  = mkrBalancePool < minAmt;
-    bool revert7  = mkrBalanceKiln + minAmt > max_uint256;
-    bool revert8  = mkrBalancePool - minAmt > mkrBalancePool;
-    bool revert9  = mkrBalanceKiln - minAmt > mkrBalanceKiln;
-    bool revert10 = mkrSupply - minAmt > mkrSupply;
+    bool revert6  = tokenBalancePool < minAmt;
+    bool revert7  = tokenBalanceKiln + minAmt > max_uint256;
+    bool revert8  = tokenBalancePool - minAmt > tokenBalancePool;
+    bool revert9  = tokenBalanceKiln - minAmt > tokenBalanceKiln;
+    bool revert10 = tokenSupply - minAmt > tokenSupply;
     bool revert11 = stop == true;
-    bool revert12 = currentContract != mkr && currentContract != tokenOwner && (authority == 0 || !canCall);
+    bool revert12 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
 
 
     assert(revert1  => lastReverted, "revert1  failed");
