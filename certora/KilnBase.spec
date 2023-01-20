@@ -259,7 +259,7 @@ rule fire_revert() {
 
     bool stop = token.stopped();
     address tokenOwner = token.owner();
-    bool canCall = authority.canCall(e, currentContract, token, 0x40c10f1900000000000000000000000000000000000000000000000000000000);
+    bool canCall = authority.canCall(e, currentContract, token, 0x42966c6800000000000000000000000000000000000000000000000000000000);
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
@@ -286,7 +286,6 @@ rule fire_revert() {
     bool revert10 = tokenSupply - minAmt > tokenSupply;
     bool revert11 = stop == true;
     bool revert12 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
-
 
     assert(revert1  => lastReverted, "revert1  failed");
     assert(revert2  => lastReverted, "revert2  failed");
