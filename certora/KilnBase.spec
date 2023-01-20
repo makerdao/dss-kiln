@@ -268,8 +268,6 @@ rule fire_revert() {
     uint256 hop = hop();
     uint256 lot = lot();
 
-    bool lotMin = daiBalanceKiln > lot;
-
     uint256 minAmt = min(daiBalanceKiln, lot);
 
     fire@withrevert(e);
