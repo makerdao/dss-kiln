@@ -23,6 +23,8 @@ methods {
     mkr.balanceOf(address) returns (uint256) envfree
 }
 
+definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
+
 ghost lockedGhost() returns uint256;
 
 hook Sstore locked uint256 n_locked STORAGE {
@@ -221,6 +223,8 @@ rule fire() {
     uint256 mkrSupplyBefore = mkr.totalSupply();
     uint256 lot = lot();
 
+    uint256 minAmt = min(daiBalanceKilnBefore, lot);
+
     fire(e);
 
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
@@ -232,18 +236,12 @@ rule fire() {
     uint256 zzzAfter = zzz();
 
     assert(daiSupplyAfter == daiSupplyBefore,                                       "assert 1 failed");
-    assert(daiBalanceKilnBefore > lot =>
-            daiBalanceKilnAfter == (daiBalanceKilnBefore - lot) &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + lot) &&
-            mkrBalancePoolAfter == (mkrBalancePoolBefore - lot) &&
-            mkrSupplyAfter      == (mkrSupplyBefore - lot),                         "assert 2 failed");
-    assert(daiBalanceKilnBefore <= lot =>
-            daiBalanceKilnAfter == 0 &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + daiBalanceKilnBefore) &&
-            mkrBalancePoolAfter == (mkrBalancePoolBefore - daiBalanceKilnBefore) &&
-            mkrSupplyAfter      == (mkrSupplyBefore - daiBalanceKilnBefore),        "assert 3 failed");
-    assert(zzzAfter == e.block.timestamp,                                           "assert 4 failed");
-    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 5 failed");
+    assert( daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt) &&
+            daiBalancePoolAfter == (daiBalancePoolBefore + minAmt) &&
+            mkrBalancePoolAfter == (mkrBalancePoolBefore - minAmt) &&
+            mkrSupplyAfter      == (mkrSupplyBefore - minAmt),                      "assert 2 failed");
+    assert(zzzAfter == e.block.timestamp,                                           "assert 3 failed");
+    assert(mkrBalanceKilnAfter == mkrBalanceKilnBefore,                             "assert 4 failed");
 }
 
 // Verify revert rules on fire
@@ -270,26 +268,24 @@ rule fire_revert() {
     uint256 hop = hop();
     uint256 lot = lot();
 
+    bool lotMin = daiBalanceKiln > lot;
+
+    uint256 minAmt = min(daiBalanceKiln, lot);
+
     fire@withrevert(e);
 
     bool revert1  = e.msg.value > 0;
     bool revert2  = locked != 0;
     bool revert3  = e.block.timestamp < zzz + hop;
-    bool revert4  = daiBalanceKiln >  lot && lot == 0;
-    bool revert5  = daiBalanceKiln <= lot && daiBalanceKiln == 0;
-    bool revert6  = daiBalanceKiln >  lot && daiBalancePool + lot > max_uint256;
-    bool revert7  = daiBalanceKiln >  lot && mkrBalancePool < lot;
-    bool revert8  = daiBalanceKiln <= lot && mkrBalancePool < daiBalanceKiln;
-    bool revert9  = daiBalanceKiln >  lot && mkrBalanceKiln + lot > max_uint256;
-    bool revert10 = daiBalanceKiln <= lot && mkrBalanceKiln + daiBalanceKiln > max_uint256;
-    bool revert11 = daiBalanceKiln >  lot && mkrBalancePool - lot > mkrBalancePool;
-    bool revert12 = daiBalanceKiln <= lot && mkrBalancePool - daiBalanceKiln > mkrBalancePool;
-    bool revert13 = daiBalanceKiln >  lot && mkrBalanceKiln - lot > mkrBalanceKiln;
-    bool revert14 = daiBalanceKiln <= lot && mkrBalanceKiln - daiBalanceKiln > mkrBalanceKiln;
-    bool revert15 = daiBalanceKiln >  lot && mkrSupply - lot > mkrSupply;
-    bool revert16 = daiBalanceKiln <= lot && mkrSupply - daiBalanceKiln > mkrSupply;
-    bool revert17 = stop == true;
-    bool revert18 = currentContract != mkr && currentContract != tokenOwner && (authority == 0 || !canCall);
+    bool revert4  = minAmt == 0;
+    bool revert5  = daiBalancePool + minAmt > max_uint256;
+    bool revert6  = mkrBalancePool < minAmt;
+    bool revert7  = mkrBalanceKiln + minAmt > max_uint256;
+    bool revert8  = mkrBalancePool - minAmt > mkrBalancePool;
+    bool revert9  = mkrBalanceKiln - minAmt > mkrBalanceKiln;
+    bool revert10 = mkrSupply - minAmt > mkrSupply;
+    bool revert11 = stop == true;
+    bool revert12 = currentContract != mkr && currentContract != tokenOwner && (authority == 0 || !canCall);
 
 
     assert(revert1  => lastReverted, "revert1  failed");
@@ -304,17 +300,9 @@ rule fire_revert() {
     assert(revert10 => lastReverted, "revert10 failed");
     assert(revert11 => lastReverted, "revert11 failed");
     assert(revert12 => lastReverted, "revert12 failed");
-    assert(revert13 => lastReverted, "revert13 failed");
-    assert(revert14 => lastReverted, "revert14 failed");
-    assert(revert15 => lastReverted, "revert15 failed");
-    assert(revert16 => lastReverted, "revert16 failed");
-    assert(revert17 => lastReverted, "revert17 failed");
-    assert(revert18 => lastReverted, "revert18 failed");
 
     assert(lastReverted => revert1  || revert2  || revert3  ||
                            revert4  || revert5  || revert6  ||
                            revert7  || revert8  || revert9  ||
-                           revert10 || revert11 || revert12 ||
-                           revert13 || revert14 || revert15 ||
-                           revert16 || revert17 || revert18, "Revert rules are not covering all the cases");
+                           revert10 || revert11 || revert12, "Revert rules are not covering all the cases");
 }
