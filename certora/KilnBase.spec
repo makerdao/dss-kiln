@@ -237,13 +237,13 @@ rule fire() {
     uint256 tokenSupplyAfter = token.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore,                             "assert1 failed");
-    assert( daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt)     &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + minAmt)     &&
-            tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt) &&
-            tokenSupplyAfter      == (tokenSupplyBefore - minAmt),        "assert2 failed");
-    assert(zzzAfter == e.block.timestamp,                                 "assert3 failed");
-    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,               "assert4 failed");
+    assert(daiSupplyAfter == daiSupplyBefore,                          "assert1 failed");
+    assert(daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt),     "assert2 failed");
+    assert(daiBalancePoolAfter == (daiBalancePoolBefore + minAmt),     "assert3 failed");
+    assert(tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt), "assert4 failed");
+    assert(tokenSupplyAfter == (tokenSupplyBefore - minAmt),           "assert5 failed");
+    assert(zzzAfter == e.block.timestamp,                              "assert6 failed");
+    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,            "assert7 failed");
 }
 
 // Verify revert rules on fire
@@ -259,7 +259,7 @@ rule fire_revert() {
 
     bool stop = token.stopped();
     address tokenOwner = token.owner();
-    bool canCall = authority.canCall(e, currentContract, token, 0x42966c6800000000000000000000000000000000000000000000000000000000);
+    bool canCall = authority.canCall(e, currentContract, token, 0x42966c6800000000000000000000000000000000000000000000000000000000); // burn(uint256)
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
