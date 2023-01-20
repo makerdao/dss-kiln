@@ -42,7 +42,7 @@ rule fallback_revert(method f) filtered { f -> f.isFallback } {
     calldataarg arg;
     f@withrevert(e, arg);
 
-    assert(lastReverted, "Fallback did not revert");
+    assert(lastReverted, "assert1 failed");
 }
 
 // Verify that wards behaves correctly on rely
@@ -60,8 +60,8 @@ rule rely(address usr) {
     uint256 wardAfter = wards(usr);
     uint256 wardOtherAfter = wards(other);
 
-    assert(wardAfter == 1, "rely did not set wards as expected");
-    assert(wardOtherAfter == wardOtherBefore, "rely affected other wards which was not expected");
+    assert(wardAfter == 1, "assert1 failed");
+    assert(wardOtherAfter == wardOtherBefore, "assert2 failed");
 }
 
 // Verify revert rules on rely
@@ -96,8 +96,8 @@ rule deny(address usr) {
     uint256 wardAfter = wards(usr);
     uint256 wardOtherAfter = wards(other);
 
-    assert(wardAfter == 0, "deny did not set wards as expected");
-    assert(wardOtherAfter == wardOtherBefore, "deny affected other wards which was not expected");
+    assert(wardAfter == 0, "assert1 failed");
+    assert(wardOtherAfter == wardOtherBefore, "assert2 failed");
 }
 
 // Verify revert rules on deny
@@ -129,10 +129,10 @@ rule file(bytes32 what, uint256 data) {
     uint256 lotAfter = lot();
     uint256 hopAfter = hop();
 
-    assert(what == 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == data, "file did not set lot as expected");
-    assert(what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == lotBefore, "file did not keep unchanged lot");
-    assert(what == 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == data, "file did not set hop as expected");
-    assert(what != 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == hopBefore, "file did not keep unchanged hop");
+    assert(what == 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == data,      "assert1 failed");
+    assert(what != 0x6c6f740000000000000000000000000000000000000000000000000000000000 => lotAfter == lotBefore, "assert2 failed");
+    assert(what == 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == data,      "assert3 failed");
+    assert(what != 0x686f700000000000000000000000000000000000000000000000000000000000 => hopAfter == hopBefore, "assert4 failed");
 }
 
 // Verify revert rules on file
@@ -172,9 +172,11 @@ rule rug(address dst) {
     uint256 balanceDstAfter = dai.balanceOf(dst);
     uint256 supplyAfter = dai.totalSupply();
 
-    assert(supplyAfter == supplyBefore, "supply did not remain as expected");
-    assert(!dstSameAsKiln => balanceKilnAfter == 0 && balanceKilnBefore == (balanceDstAfter - balanceDstBefore), "balance did not change as expected");
-    assert(dstSameAsKiln => balanceKilnAfter == balanceKilnBefore, "balance changed");
+    assert(supplyAfter == supplyBefore, "assert1 failed");
+    assert(!dstSameAsKiln =>
+            balanceKilnAfter == 0 &&
+            balanceKilnBefore == (balanceDstAfter - balanceDstBefore), "assert2 failed");
+    assert(dstSameAsKiln => balanceKilnAfter == balanceKilnBefore, "assert3 failed");
 }
 
 // Verify revert rules on rug
@@ -235,13 +237,13 @@ rule fire() {
     uint256 tokenSupplyAfter = token.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore,                                       "assert 1 failed");
-    assert( daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt) &&
-            daiBalancePoolAfter == (daiBalancePoolBefore + minAmt) &&
+    assert(daiSupplyAfter == daiSupplyBefore,                             "assert1 failed");
+    assert( daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt)     &&
+            daiBalancePoolAfter == (daiBalancePoolBefore + minAmt)     &&
             tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt) &&
-            tokenSupplyAfter      == (tokenSupplyBefore - minAmt),                      "assert 2 failed");
-    assert(zzzAfter == e.block.timestamp,                                           "assert 3 failed");
-    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,                             "assert 4 failed");
+            tokenSupplyAfter      == (tokenSupplyBefore - minAmt),        "assert2 failed");
+    assert(zzzAfter == e.block.timestamp,                                 "assert3 failed");
+    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,               "assert4 failed");
 }
 
 // Verify revert rules on fire
