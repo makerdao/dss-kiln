@@ -1,15 +1,21 @@
 pragma solidity 0.6.12;
 
 interface GemLike {
-    function approve(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+    function transfer(address, uint256) external returns (bool);
 }
 
 contract PoolMock {
-    address public immutable gem;
-    address public immutable usr;
-    constructor(address _gem, address _usr) public {
-        gem = _gem;
-        usr = _usr;
-        GemLike(_gem).approve(_usr, type(uint256).max);
+    address public immutable dai;
+    address public immutable token;
+    constructor(address _dai, address _token) public {
+        dai = _dai;
+        token = _token;
+    }
+
+    function swap(uint256 amount) external returns (uint256 swapped) {
+        GemLike(dai).transferFrom(msg.sender, address(this), amount);
+        GemLike(token).transfer(msg.sender, amount);
+        swapped = amount;
     }
 }

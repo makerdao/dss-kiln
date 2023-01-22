@@ -16,6 +16,7 @@ methods {
     pool() returns (address) envfree
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
+    dai.allowance(address, address) returns (uint256) envfree
     token.authority() returns (address) envfree
     token.owner() returns (address) envfree
     token.stopped() returns (bool) envfree
@@ -263,6 +264,7 @@ rule fire_revert() {
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
+    uint256 allowed = dai.allowance(currentContract, pool);
     uint256 tokenBalanceKiln = token.balanceOf(currentContract);
     uint256 tokenBalancePool = token.balanceOf(pool);
     uint256 tokenSupply = token.totalSupply();
@@ -278,14 +280,16 @@ rule fire_revert() {
     bool revert2  = locked != 0;
     bool revert3  = e.block.timestamp < zzz + hop;
     bool revert4  = minAmt == 0;
-    bool revert5  = daiBalancePool + minAmt > max_uint256;
-    bool revert6  = tokenBalancePool < minAmt;
-    bool revert7  = tokenBalanceKiln + minAmt > max_uint256;
-    bool revert8  = tokenBalancePool - minAmt > tokenBalancePool;
-    bool revert9  = tokenBalanceKiln - minAmt > tokenBalanceKiln;
-    bool revert10 = tokenSupply - minAmt > tokenSupply;
-    bool revert11 = stop == true;
-    bool revert12 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
+    bool revert5  = allowed != max_uint256 && allowed - minAmt > allowed;
+    bool revert6  = daiBalanceKiln - minAmt > daiBalanceKiln;
+    bool revert7  = daiBalancePool + minAmt > max_uint256;
+    bool revert8  = tokenBalancePool < minAmt;
+    bool revert9  = tokenBalanceKiln + minAmt > max_uint256;
+    bool revert10 = tokenBalancePool - minAmt > tokenBalancePool;
+    bool revert11 = tokenBalanceKiln - minAmt > tokenBalanceKiln;
+    bool revert12 = tokenSupply - minAmt > tokenSupply;
+    bool revert13 = stop == true;
+    bool revert14 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
 
     assert(revert1  => lastReverted, "revert1  failed");
     assert(revert2  => lastReverted, "revert2  failed");
@@ -299,9 +303,13 @@ rule fire_revert() {
     assert(revert10 => lastReverted, "revert10 failed");
     assert(revert11 => lastReverted, "revert11 failed");
     assert(revert12 => lastReverted, "revert12 failed");
+    assert(revert13 => lastReverted, "revert13 failed");
+    assert(revert14 => lastReverted, "revert14 failed");
+
 
     assert(lastReverted => revert1  || revert2  || revert3  ||
                            revert4  || revert5  || revert6  ||
                            revert7  || revert8  || revert9  ||
-                           revert10 || revert11 || revert12, "Revert rules are not covering all the cases");
+                           revert10 || revert11 || revert12 ||
+                           revert13 || revert14, "Revert rules are not covering all the cases");
 }
