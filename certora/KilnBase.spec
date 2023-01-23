@@ -22,6 +22,9 @@ methods {
     token.stopped() returns (bool) envfree
     token.totalSupply() returns (uint256) envfree
     token.balanceOf(address) returns (uint256) envfree
+    token.allowance(address, address) returns (uint256) envfree
+    pool.dai() returns (address) envfree
+    pool.token() returns (address) envfree
 }
 
 definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
@@ -214,8 +217,10 @@ rule rug_revert(address dst) {
 rule fire() {
     env e;
 
-    require(dai  == sell());
-    require(token  == buy());
+    require(dai == sell());
+    require(pool.dai() == dai);
+    require(token == buy());
+    require(pool.token() == token);
     require(pool == pool());
 
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
@@ -251,8 +256,8 @@ rule fire() {
 rule fire_revert() {
     env e;
 
-    require(dai  == sell());
-    require(token  == buy());
+    require(dai == sell());
+    require(token == buy());
     require(authority == token.authority());
     require(pool == pool());
 
@@ -264,9 +269,10 @@ rule fire_revert() {
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
-    uint256 allowed = dai.allowance(currentContract, pool);
+    uint256 daiAllowed = dai.allowance(currentContract, pool);
     uint256 tokenBalanceKiln = token.balanceOf(currentContract);
     uint256 tokenBalancePool = token.balanceOf(pool);
+    uint256 tokenAllowed = token.allowance(currentContract, pool);
     uint256 tokenSupply = token.totalSupply();
     uint256 zzz = zzz();
     uint256 hop = hop();
@@ -280,16 +286,17 @@ rule fire_revert() {
     bool revert2  = locked != 0;
     bool revert3  = e.block.timestamp < zzz + hop;
     bool revert4  = minAmt == 0;
-    bool revert5  = allowed != max_uint256 && allowed - minAmt > allowed;
-    bool revert6  = daiBalanceKiln - minAmt > daiBalanceKiln;
+    bool revert5  = daiAllowed != max_uint256 && daiAllowed - minAmt > max_uint256;
+    bool revert6  = daiBalanceKiln - minAmt > max_uint256;
     bool revert7  = daiBalancePool + minAmt > max_uint256;
     bool revert8  = tokenBalancePool < minAmt;
     bool revert9  = tokenBalanceKiln + minAmt > max_uint256;
-    bool revert10 = tokenBalancePool - minAmt > tokenBalancePool;
-    bool revert11 = tokenBalanceKiln - minAmt > tokenBalanceKiln;
-    bool revert12 = tokenSupply - minAmt > tokenSupply;
-    bool revert13 = stop == true;
-    bool revert14 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
+    bool revert10 = tokenBalancePool - minAmt > max_uint256;
+    bool revert11 = tokenBalanceKiln > max_uint256;
+    bool revert12 = tokenSupply - minAmt > max_uint256;
+    bool revert13 = tokenAllowed != max_uint256 && tokenAllowed - minAmt > max_uint256;
+    bool revert14 = stop == true;
+    bool revert15 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
 
     assert(revert1  => lastReverted, "revert1  failed");
     assert(revert2  => lastReverted, "revert2  failed");
@@ -305,11 +312,11 @@ rule fire_revert() {
     assert(revert12 => lastReverted, "revert12 failed");
     assert(revert13 => lastReverted, "revert13 failed");
     assert(revert14 => lastReverted, "revert14 failed");
-
+    assert(revert15 => lastReverted, "revert15 failed");
 
     assert(lastReverted => revert1  || revert2  || revert3  ||
                            revert4  || revert5  || revert6  ||
                            revert7  || revert8  || revert9  ||
                            revert10 || revert11 || revert12 ||
-                           revert13 || revert14, "Revert rules are not covering all the cases");
+                           revert13 || revert14 || revert15, "Revert rules are not covering all the cases");
 }

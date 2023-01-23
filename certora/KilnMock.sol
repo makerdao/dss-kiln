@@ -43,7 +43,7 @@ contract KilnMock is KilnBase {
 
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
         GemMock(sell).approve(pool, amount);
-        swapped = PoolMock(pool).swap(amount);
+        return PoolMock(pool).swap(amount);
     }
 
     function _drop(uint256 amount) internal override {
