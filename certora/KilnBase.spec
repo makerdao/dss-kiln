@@ -237,19 +237,15 @@ rule fire() {
 
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
     uint256 daiBalancePoolAfter = dai.balanceOf(pool);
-    uint256 tokenBalanceKilnAfter = token.balanceOf(currentContract);
     uint256 tokenBalancePoolAfter = token.balanceOf(pool);
     uint256 daiSupplyAfter = dai.totalSupply();
-    uint256 tokenSupplyAfter = token.totalSupply();
     uint256 zzzAfter = zzz();
 
     assert(daiSupplyAfter == daiSupplyBefore,                          "assert1 failed");
     assert(daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt),     "assert2 failed");
     assert(daiBalancePoolAfter == (daiBalancePoolBefore + minAmt),     "assert3 failed");
     assert(tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt), "assert4 failed");
-    assert(tokenSupplyAfter == (tokenSupplyBefore - minAmt),           "assert5 failed");
-    assert(zzzAfter == e.block.timestamp,                              "assert6 failed");
-    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,            "assert7 failed");
+    assert(zzzAfter == e.block.timestamp,                              "assert5 failed");
 }
 
 // Verify revert rules on fire
@@ -296,7 +292,6 @@ rule fire_revert() {
     bool revert12 = tokenSupply - minAmt > max_uint256;
     bool revert13 = tokenAllowed != max_uint256 && tokenAllowed - minAmt > max_uint256;
     bool revert14 = stop == true;
-    bool revert15 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
 
     assert(revert1  => lastReverted, "revert1  failed");
     assert(revert2  => lastReverted, "revert2  failed");
@@ -312,11 +307,10 @@ rule fire_revert() {
     assert(revert12 => lastReverted, "revert12 failed");
     assert(revert13 => lastReverted, "revert13 failed");
     assert(revert14 => lastReverted, "revert14 failed");
-    assert(revert15 => lastReverted, "revert15 failed");
 
     assert(lastReverted => revert1  || revert2  || revert3  ||
                            revert4  || revert5  || revert6  ||
                            revert7  || revert8  || revert9  ||
                            revert10 || revert11 || revert12 ||
-                           revert13 || revert14 || revert15, "Revert rules are not covering all the cases");
+                           revert13 || revert14, "Revert rules are not covering all the cases");
 }

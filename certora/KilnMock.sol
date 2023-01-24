@@ -20,7 +20,6 @@ import {KilnBase, GemLike} from "../src/KilnBase.sol";
 
 interface GemMock {
     function approve(address, uint256) external;
-    function burn(uint256) external;
 }
 
 interface PoolMock {
@@ -47,6 +46,5 @@ contract KilnMock is KilnBase {
     }
 
     function _drop(uint256 amount) internal override {
-        GemMock(buy).burn(amount);
     }
 }

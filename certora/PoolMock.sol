@@ -2,7 +2,6 @@ pragma solidity 0.6.12;
 
 interface GemLike {
     function transferFrom(address, address, uint256) external returns (bool);
-    function transfer(address, uint256) external returns (bool);
 }
 
 contract PoolMock {
@@ -15,7 +14,7 @@ contract PoolMock {
 
     function swap(uint256 amount) external returns (uint256 swapped) {
         GemLike(dai).transferFrom(msg.sender, address(this), amount);
-        GemLike(token).transfer(msg.sender, amount);
+        GemLike(token).transferFrom(address(this), msg.sender, amount);
         swapped = amount;
     }
 }
