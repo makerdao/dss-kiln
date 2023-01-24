@@ -16,8 +16,13 @@
 
 pragma solidity ^0.8.14;
 
-import {KilnBase, GemLike} from "./KilnBase.sol";
+import {KilnBase} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
+
+interface GemLike {
+    function approve(address, uint256) external;
+    function balanceOf(address) external view returns (uint256);
+}
 
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol
 interface SwapRouterLike {
@@ -46,7 +51,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     event File(bytes32 indexed what, bytes data);
 
     // @notice initialize a Uniswap V3 routing path contract
-    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will 
+    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will
     //      perform the trade only when the amount of tokens received is equal or better than
     //      the 1 hour average price.
     // @param _sell          the contract address of the token that will be sold
