@@ -91,6 +91,7 @@ abstract contract KilnBase {
         @param dst   Destination of the funds
     */
     function rug(address dst) external auth lock {
+        require(dst != address(this), "KilnBase/invalid-dst");
         uint256 amt = GemLike(sell).balanceOf(address(this));
         GemLike(sell).transfer(dst, amt);
         emit Rug(dst, amt);

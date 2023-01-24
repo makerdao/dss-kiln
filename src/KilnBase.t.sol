@@ -145,6 +145,11 @@ contract KilnBaseTest is Test {
         kiln.rug(address(this));
     }
 
+    function testRugInvalidDst() public {
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(kiln));
+    }
+
     function testFire() public {
         mintDai(address(kiln), 50_000 * WAD);
         vm.expectEmit(true, true, false, false);
