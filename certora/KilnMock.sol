@@ -45,6 +45,5 @@ contract KilnMock is KilnBase {
         return PoolMock(pool).swap(amount);
     }
 
-    function _drop(uint256 amount) internal override {
-    }
+    function _drop(uint256 amount) internal override {}
 }

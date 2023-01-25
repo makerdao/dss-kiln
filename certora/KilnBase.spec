@@ -23,8 +23,6 @@ methods {
     token.totalSupply() returns (uint256) envfree
     token.balanceOf(address) returns (uint256) envfree
     token.allowance(address, address) returns (uint256) envfree
-    pool.dai() returns (address) envfree
-    pool.token() returns (address) envfree
 }
 
 definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
@@ -218,9 +216,7 @@ rule fire() {
     env e;
 
     require(dai == sell());
-    require(pool.dai() == dai);
     require(token == buy());
-    require(pool.token() == token);
     require(pool == pool());
 
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
@@ -261,7 +257,6 @@ rule fire_revert() {
 
     bool stop = token.stopped();
     address tokenOwner = token.owner();
-    bool canCall = authority.canCall(e, currentContract, token, 0x42966c6800000000000000000000000000000000000000000000000000000000); // burn(uint256)
 
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
