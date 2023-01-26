@@ -17,10 +17,15 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./KilnUniV3.sol";
+
+import {KilnUniV3, GemLike, ExactInputParams, SwapRouterLike} from "./KilnUniV3.sol";
 
 interface TestGem {
     function totalSupply() external view returns (uint256);
+}
+
+interface TestVat {
+    function cage() external;
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Quoter.sol#L106-L122
@@ -47,22 +52,27 @@ contract KilnTest is Test {
 
     uint256 constant WAD = 1e18;
 
+    address constant VAT      = 0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B;
     address constant ROUTER   = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address constant QUOTER   = 0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6;
     address constant FACTORY  = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
+
+    event Rug(address indexed dst, uint256 indexed amt);
 
     function setUp() public {
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
-        kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
+        kiln = new KilnUniV3(VAT, DAI, MKR, ROUTER, address(user));
         quoter = Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
+        kiln.file("dst", address(this));
         kiln.file("path", path);
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
@@ -156,6 +166,23 @@ contract KilnTest is Test {
         vm.startPrank(address(123));
         vm.expectRevert("KilnBase/not-authorized");
         kiln.file("scope", 413);
+    }
+
+    function testRugVatNotLive() public {
+        mintDai(address(kiln), 50_000 * WAD);
+
+        assertEq(kiln.sell(), DAI);
+        assertEq(GemLike(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+
+        // become Vat owner and cage it
+        vm.store(VAT, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
+        TestVat(VAT).cage();
+
+        emit Rug(address(kiln), 50_000 * WAD);
+        kiln.rug();
+
+        assertEq(GemLike(DAI).balanceOf(address(kiln)), 0);
+        assertEq(GemLike(DAI).balanceOf(address(this)), 50_000 * WAD);
     }
 
     function testFireYenMuchLessThanTwap() public {
