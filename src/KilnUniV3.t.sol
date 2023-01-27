@@ -63,7 +63,7 @@ contract KilnTest is Test {
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
 
-    event Rug(address indexed dst, uint256 indexed amt);
+    event Rug(address indexed dst, uint256 amt);
 
     function setUp() public {
         user = new User();
@@ -180,7 +180,8 @@ contract KilnTest is Test {
         vm.store(VAT, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
         TestVat(VAT).cage();
 
-        emit Rug(address(kiln), 50_000 * WAD);
+        vm.expectEmit(true, true, false, false);
+        emit Rug(address(this), 50_000 * WAD);
         kiln.rug();
 
         assertEq(TestGem(DAI).balanceOf(address(kiln)), 0);
