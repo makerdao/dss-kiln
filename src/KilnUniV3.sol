@@ -19,9 +19,8 @@ pragma solidity ^0.8.14;
 import {KilnBase} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 
-interface GemLike {
+interface TokenLike {
     function approve(address, uint256) external;
-    function balanceOf(address) external view returns (uint256);
 }
 
 interface VatLike {
@@ -134,7 +133,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     }
 
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
-        GemLike(sell).approve(uniV3Router, amount);
+        TokenLike(sell).approve(uniV3Router, amount);
 
         bytes   memory _path = path;
         uint256        _yen  = yen;
