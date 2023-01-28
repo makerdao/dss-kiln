@@ -58,6 +58,11 @@ contract KilnMomTest is Test {
         kiln.rely(address(mom));
     }
 
+    function testDeployWithDstZeroAddress() public {
+        vm.expectRevert("KilnMom/invalid-dst");
+        new KilnMom(address(0));
+    }
+
     function mintDai(address usr, uint256 amt) internal {
         deal(DAI, usr, amt);
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);

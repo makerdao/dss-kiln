@@ -145,9 +145,14 @@ contract KilnBaseTest is Test {
         kiln.rug(address(this));
     }
 
-    function testRugInvalidDst() public {
+    function testRugInvalidDstContractAddress() public {
         vm.expectRevert("KilnBase/invalid-dst");
         kiln.rug(address(kiln));
+    }
+
+    function testRugInvalidDstZeroAddress() public {
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(0));
     }
 
     function testFire() public {

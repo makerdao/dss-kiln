@@ -188,6 +188,23 @@ contract KilnTest is Test {
         assertEq(TestGem(DAI).balanceOf(address(this)), 50_000 * WAD);
     }
 
+    function testRugVatLive() public {
+        vm.expectRevert("KilnUniV3/vat-live");
+        kiln.rug();
+    }
+
+    function testRugInvalidDstContractAddress() public {
+        kiln.file("dst", address(this));
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(kiln));
+    }
+
+    function testRugInvalidDstZeroAddress() public {
+        kiln.file("dst", address(0));
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(0));
+    }
+
     function testFireYenMuchLessThanTwap() public {
         mintDai(address(kiln), 50_000 * WAD);
 

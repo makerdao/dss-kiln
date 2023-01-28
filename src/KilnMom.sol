@@ -46,6 +46,7 @@ contract KilnMom {
     }
 
     constructor(address _dst) {
+        require(_dst != address(0), "KilnMom/invalid-dst");
         dst = _dst;
 
         owner = msg.sender;
