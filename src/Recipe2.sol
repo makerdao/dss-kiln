@@ -160,8 +160,8 @@ contract Recipe2 is KilnBase, TwapProduct {
         swapped = liquidity;
 
         // If not all buy tokens were used, send the remainder to the receiver
-        if (amountB > bought) {
-            GemLike(buy).transfer(receiver, amountB - bought);
+        if (bought > amountB) {
+            GemLike(buy).transfer(receiver, bought - amountB);
         }
     }
 
