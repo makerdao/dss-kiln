@@ -27,16 +27,6 @@ methods {
 
 definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
 
-ghost lockedGhost() returns uint256;
-
-hook Sstore locked uint256 n_locked STORAGE {
-    havoc lockedGhost assuming lockedGhost@new() == n_locked;
-}
-
-hook Sload uint256 value locked STORAGE {
-    require lockedGhost() == value;
-}
-
 // Verify fallback always reverts
 rule fallback_revert(method f) filtered { f -> f.isFallback } {
     env e;
@@ -188,7 +178,7 @@ rule rug_revert(address dst) {
     require(dai == sell());
 
     uint256 ward = wards(e.msg.sender);
-    uint256 locked = lockedGhost();
+    uint256 locked = locked();
 
     uint256 balanceKiln = dai.balanceOf(currentContract);
     uint256 balanceDst = dai.balanceOf(dst);
@@ -257,7 +247,7 @@ rule fire_revert() {
     require(authority == token.authority());
     require(pool == pool());
 
-    uint256 locked = lockedGhost();
+    uint256 locked = locked();
 
     bool stop = token.stopped();
     address tokenOwner = token.owner();
