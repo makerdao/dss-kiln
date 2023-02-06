@@ -2,7 +2,7 @@
 /cache
 
 # certora
-.*certora*
+.*certora_*
 .last_confs/
 *.zip
 resource_errors.json
