@@ -6,15 +6,15 @@ interface GemLike {
 
 contract PoolMock {
     address public immutable dai;
-    address public immutable token;
-    constructor(address _dai, address _token) public {
+    address public immutable gem;
+    constructor(address _dai, address _gem) public {
         dai = _dai;
-        token = _token;
+        gem = _gem;
     }
 
     function swap(uint256 amount) external returns (uint256 swapped) {
         GemLike(dai).transferFrom(msg.sender, address(this), amount);
-        GemLike(token).transferFrom(address(this), msg.sender, amount);
+        GemLike(gem).transferFrom(address(this), msg.sender, amount);
         swapped = amount;
     }
 }

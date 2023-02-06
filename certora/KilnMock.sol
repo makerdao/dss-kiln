@@ -19,7 +19,7 @@ pragma solidity ^0.8.14;
 import {KilnBase} from "../src/KilnBase.sol";
 
 interface GemMock {
-    function approve(address, uint256) external;
+    function approve(address, uint256) external returns (bool);
     function burn(uint256) external;
 }
 

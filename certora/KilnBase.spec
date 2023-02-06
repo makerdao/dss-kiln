@@ -1,8 +1,7 @@
 // KilnBase.spec
 
 using Dai as dai
-using DSToken as token
-using MockAuthority as authority
+using Gem as gem
 using PoolMock as pool
 
 methods {
@@ -17,12 +16,8 @@ methods {
     dai.totalSupply() returns (uint256) envfree
     dai.balanceOf(address) returns (uint256) envfree
     dai.allowance(address, address) returns (uint256) envfree
-    token.authority() returns (address) envfree
-    token.owner() returns (address) envfree
-    token.stopped() returns (bool) envfree
-    token.totalSupply() returns (uint256) envfree
-    token.balanceOf(address) returns (uint256) envfree
-    token.allowance(address, address) returns (uint256) envfree
+    gem.totalSupply() returns (uint256) envfree
+    gem.balanceOf(address) returns (uint256) envfree
 }
 
 definition min(uint256 x, uint256 y) returns uint256 = x <= y ? x : y;
@@ -206,15 +201,15 @@ rule fire() {
     env e;
 
     require(dai == sell());
-    require(token == buy());
+    require(gem == buy());
     require(pool == pool());
 
     uint256 daiBalanceKilnBefore = dai.balanceOf(currentContract);
     uint256 daiBalancePoolBefore = dai.balanceOf(pool);
-    uint256 tokenBalanceKilnBefore = token.balanceOf(currentContract);
-    uint256 tokenBalancePoolBefore = token.balanceOf(pool);
+    uint256 gemBalanceKilnBefore = gem.balanceOf(currentContract);
+    uint256 gemBalancePoolBefore = gem.balanceOf(pool);
     uint256 daiSupplyBefore = dai.totalSupply();
-    uint256 tokenSupplyBefore = token.totalSupply();
+    uint256 gemSupplyBefore = gem.totalSupply();
     uint256 lot = lot();
 
     uint256 minAmt = min(daiBalanceKilnBefore, lot);
@@ -223,19 +218,19 @@ rule fire() {
 
     uint256 daiBalanceKilnAfter = dai.balanceOf(currentContract);
     uint256 daiBalancePoolAfter = dai.balanceOf(pool);
-    uint256 tokenBalanceKilnAfter = token.balanceOf(currentContract);
-    uint256 tokenBalancePoolAfter = token.balanceOf(pool);
+    uint256 gemBalanceKilnAfter = gem.balanceOf(currentContract);
+    uint256 gemBalancePoolAfter = gem.balanceOf(pool);
     uint256 daiSupplyAfter = dai.totalSupply();
-    uint256 tokenSupplyAfter = token.totalSupply();
+    uint256 gemSupplyAfter = gem.totalSupply();
     uint256 zzzAfter = zzz();
 
-    assert(daiSupplyAfter == daiSupplyBefore,                          "assert1 failed");
-    assert(daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt),     "assert2 failed");
-    assert(daiBalancePoolAfter == (daiBalancePoolBefore + minAmt),     "assert3 failed");
-    assert(tokenBalancePoolAfter == (tokenBalancePoolBefore - minAmt), "assert4 failed");
-    assert(tokenSupplyAfter == (tokenSupplyBefore - minAmt),           "assert5 failed");
-    assert(zzzAfter == e.block.timestamp,                              "assert6 failed");
-    assert(tokenBalanceKilnAfter == tokenBalanceKilnBefore,            "assert7 failed");
+    assert(daiSupplyAfter == daiSupplyBefore,                      "assert1 failed");
+    assert(daiBalanceKilnAfter == (daiBalanceKilnBefore - minAmt), "assert2 failed");
+    assert(daiBalancePoolAfter == (daiBalancePoolBefore + minAmt), "assert3 failed");
+    assert(gemBalancePoolAfter == (gemBalancePoolBefore - minAmt), "assert4 failed");
+    assert(gemSupplyAfter == (gemSupplyBefore - minAmt),           "assert5 failed");
+    assert(zzzAfter == e.block.timestamp,                          "assert6 failed");
+    assert(gemBalanceKilnAfter == gemBalanceKilnBefore,            "assert7 failed");
 }
 
 // Verify revert rules on fire
@@ -243,23 +238,17 @@ rule fire_revert() {
     env e;
 
     require(dai == sell());
-    require(token == buy());
-    require(authority == token.authority());
+    require(gem == buy());
     require(pool == pool());
 
     uint256 locked = locked();
 
-    bool stop = token.stopped();
-    address tokenOwner = token.owner();
-    bool canCall = authority.canCall(e, currentContract, token, 0x42966c6800000000000000000000000000000000000000000000000000000000); // burn(uint256)
-
     uint256 daiBalanceKiln = dai.balanceOf(currentContract);
     uint256 daiBalancePool = dai.balanceOf(pool);
     uint256 daiAllowed = dai.allowance(currentContract, pool);
-    uint256 tokenBalanceKiln = token.balanceOf(currentContract);
-    uint256 tokenBalancePool = token.balanceOf(pool);
-    uint256 tokenAllowed = token.allowance(currentContract, pool);
-    uint256 tokenSupply = token.totalSupply();
+    uint256 gemBalanceKiln = gem.balanceOf(currentContract);
+    uint256 gemBalancePool = gem.balanceOf(pool);
+    uint256 gemSupply = gem.totalSupply();
     uint256 zzz = zzz();
     uint256 hop = hop();
     uint256 lot = lot();
@@ -275,13 +264,11 @@ rule fire_revert() {
     bool revert5  = daiAllowed != max_uint256 && daiAllowed - minAmt > max_uint256;
     bool revert6  = daiBalanceKiln - minAmt < 0;
     bool revert7  = daiBalancePool + minAmt > max_uint256;
-    bool revert8  = tokenBalancePool < minAmt;
-    bool revert9  = tokenBalanceKiln + minAmt > max_uint256;
-    bool revert10 = tokenBalancePool - minAmt < 0;
-    bool revert11 = tokenBalanceKiln > max_uint256;
-    bool revert12 = tokenSupply - minAmt < 0;
-    bool revert13 = stop == true;
-    bool revert14 = currentContract != token && currentContract != tokenOwner && (authority == 0 || !canCall);
+    bool revert8  = gemBalancePool < minAmt;
+    bool revert9  = gemBalanceKiln + minAmt > max_uint256;
+    bool revert10 = gemBalancePool - minAmt < 0;
+    bool revert11 = gemBalanceKiln > max_uint256;
+    bool revert12 = gemSupply - minAmt < 0;
 
     assert(revert1  => lastReverted, "revert1  failed");
     assert(revert2  => lastReverted, "revert2  failed");
@@ -295,12 +282,10 @@ rule fire_revert() {
     assert(revert10 => lastReverted, "revert10 failed");
     assert(revert11 => lastReverted, "revert11 failed");
     assert(revert12 => lastReverted, "revert12 failed");
-    assert(revert13 => lastReverted, "revert13 failed");
-    assert(revert14 => lastReverted, "revert14 failed");
 
     assert(lastReverted => revert1  || revert2  || revert3  ||
                            revert4  || revert5  || revert6  ||
                            revert7  || revert8  || revert9  ||
-                           revert10 || revert11 || revert12 ||
-                           revert13 || revert14, "Revert rules are not covering all the cases");
+                           revert10 || revert11 || revert12,
+                           "Revert rules are not covering all the cases");
 }
