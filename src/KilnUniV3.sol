@@ -16,8 +16,16 @@
 
 pragma solidity ^0.8.14;
 
-import {KilnBase, GemLike} from "./KilnBase.sol";
+import {KilnBase} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
+
+interface TokenLike {
+    function approve(address, uint256) external;
+}
+
+interface VatLike {
+    function live() external view returns (uint256);
+}
 
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol
 interface SwapRouterLike {
@@ -39,14 +47,17 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     uint256 public scope; // [Seconds]  Time period for TWAP calculations
     uint256 public yen;   // [WAD]      Relative multiplier of the TWAP's price to insist on
     bytes   public path;  //            ABI-encoded UniV3 compatible path
+    address public dst;   //            Destination address to withdraw unspent funds permissionless during GS
 
+    address public immutable vat;
     address public immutable uniV3Router;
     address public immutable receiver;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
 
     // @notice initialize a Uniswap V3 routing path contract
-    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will 
+    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will
     //      perform the trade only when the amount of tokens received is equal or better than
     //      the 1 hour average price.
     // @param _sell          the contract address of the token that will be sold
@@ -54,6 +65,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     // @param _uniV3Router   the address of the current Uniswap V3 swap router
     // @param _receiver      the address of the account which will receive the funds to be bought
     constructor(
+        address _vat,
         address _sell,
         address _buy,
         address _uniV3Router,
@@ -62,6 +74,7 @@ contract KilnUniV3 is KilnBase, TwapProduct {
         KilnBase(_sell, _buy)
         TwapProduct(SwapRouterLike(_uniV3Router).factory())
     {
+        vat = _vat;
         uniV3Router = _uniV3Router;
         receiver    = _receiver;
 
@@ -70,6 +83,17 @@ contract KilnUniV3 is KilnBase, TwapProduct {
     }
 
     uint256 constant WAD = 10 ** 18;
+
+    /**
+        @dev Auth'ed function to update dst value
+        @param what   Tag of value to update
+        @param data   Value to update
+    */
+    function file(bytes32 what, address data) external auth {
+        if (what == "dst") dst = data;
+        else revert("KilnUniV3/file-unrecognized-param");
+        emit File(what, data);
+    }
 
     /**
         @dev Auth'ed function to update path value
@@ -102,8 +126,14 @@ contract KilnUniV3 is KilnBase, TwapProduct {
         emit File(what, data);
     }
 
+    function rug() external {
+        require(VatLike(vat).live() == 0,"KilnUniV3/vat-live");
+        address _dst = dst;
+        _rug(_dst);
+    }
+
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
-        GemLike(sell).approve(uniV3Router, amount);
+        TokenLike(sell).approve(uniV3Router, amount);
 
         bytes   memory _path = path;
         uint256        _yen  = yen;

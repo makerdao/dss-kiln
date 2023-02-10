@@ -17,7 +17,6 @@
 pragma solidity ^0.8.14;
 
 interface GemLike {
-    function approve(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
     function transfer(address, uint256) external;
 }
@@ -91,7 +90,16 @@ abstract contract KilnBase {
         @dev Auth'ed function to withdraw unspent funds
         @param dst   Destination of the funds
     */
-    function rug(address dst) external auth lock {
+    function rug(address dst) external auth {
+        _rug(dst);
+    }
+
+    /**
+        @dev Internal logic to withdraw unspent funds
+        @param dst   Destination of the funds
+    */
+    function _rug(address dst) internal lock {
+        require(dst != address(0) && dst != address(this), "KilnBase/invalid-dst");
         uint256 amt = GemLike(sell).balanceOf(address(this));
         GemLike(sell).transfer(dst, amt);
         emit Rug(dst, amt);

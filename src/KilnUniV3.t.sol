@@ -17,10 +17,17 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./KilnUniV3.sol";
+
+import {KilnUniV3, ExactInputParams, SwapRouterLike} from "./KilnUniV3.sol";
 
 interface TestGem {
+    function approve(address, uint256) external;
+    function balanceOf(address) external view returns (uint256);
     function totalSupply() external view returns (uint256);
+}
+
+interface TestVat {
+    function cage() external;
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Quoter.sol#L106-L122
@@ -47,22 +54,27 @@ contract KilnTest is Test {
 
     uint256 constant WAD = 1e18;
 
+    address constant VAT      = 0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B;
     address constant ROUTER   = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address constant QUOTER   = 0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6;
     address constant FACTORY  = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
+
+    event Rug(address indexed dst, uint256 amt);
 
     function setUp() public {
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
-        kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
+        kiln = new KilnUniV3(VAT, DAI, MKR, ROUTER, address(user));
         quoter = Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
+        kiln.file("dst", address(this));
         kiln.file("path", path);
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
@@ -70,7 +82,7 @@ contract KilnTest is Test {
 
     function mintDai(address usr, uint256 amt) internal {
         deal(DAI, usr, amt);
-        assertEq(GemLike(DAI).balanceOf(address(usr)), amt);
+        assertEq(TestGem(DAI).balanceOf(address(usr)), amt);
     }
 
     function estimate(uint256 amtIn) internal returns (uint256 amtOut) {
@@ -78,7 +90,7 @@ contract KilnTest is Test {
     }
 
     function swap(address gem, uint256 amount) internal {
-        GemLike(gem).approve(kiln.uniV3Router(), amount);
+        TestGem(gem).approve(kiln.uniV3Router(), amount);
 
         bytes memory _path;
         if (gem == DAI) {
@@ -158,36 +170,71 @@ contract KilnTest is Test {
         kiln.file("scope", 413);
     }
 
+    function testRugVatNotLive() public {
+        mintDai(address(kiln), 50_000 * WAD);
+
+        assertEq(kiln.sell(), DAI);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+
+        // become Vat owner and cage it
+        vm.store(VAT, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
+        TestVat(VAT).cage();
+
+        vm.expectEmit(true, true, false, false);
+        emit Rug(address(this), 50_000 * WAD);
+        kiln.rug();
+
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 0);
+        assertEq(TestGem(DAI).balanceOf(address(this)), 50_000 * WAD);
+    }
+
+    function testRugVatLive() public {
+        vm.expectRevert("KilnUniV3/vat-live");
+        kiln.rug();
+    }
+
+    function testRugInvalidDstContractAddress() public {
+        kiln.file("dst", address(this));
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(kiln));
+    }
+
+    function testRugInvalidDstZeroAddress() public {
+        kiln.file("dst", address(0));
+        vm.expectRevert("KilnBase/invalid-dst");
+        kiln.rug(address(0));
+    }
+
     function testFireYenMuchLessThanTwap() public {
         mintDai(address(kiln), 50_000 * WAD);
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 50_000 * WAD);
         uint256 mkrSupply = TestGem(MKR).totalSupply();
         assertTrue(mkrSupply > 0);
 
         uint256 _est = estimate(50_000 * WAD);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(MKR).balanceOf(address(user)), 0);
+        assertEq(TestGem(MKR).balanceOf(address(user)), 0);
 
         kiln.file("yen", 80 * WAD / 100);
         kiln.fire();
 
-        assertTrue(GemLike(DAI).balanceOf(address(kiln)) < 50_000 * WAD);
-        assertEq(GemLike(MKR).balanceOf(address(user)), _est);
+        assertTrue(TestGem(DAI).balanceOf(address(kiln)) < 50_000 * WAD);
+        assertEq(TestGem(MKR).balanceOf(address(user)), _est);
     }
 
     function testFireYenMuchMoreThanTwap() public {
         mintDai(address(kiln), 50_000 * WAD);
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 50_000 * WAD);
         uint256 mkrSupply = TestGem(MKR).totalSupply();
         assertTrue(mkrSupply > 0);
 
         uint256 _est = estimate(50_000 * WAD);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(MKR).balanceOf(address(user)), 0);
+        assertEq(TestGem(MKR).balanceOf(address(user)), 0);
 
         kiln.file("yen", 120 * WAD / 100);
         // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol#L165
@@ -198,47 +245,47 @@ contract KilnTest is Test {
     function testFireYenZero() public {
         mintDai(address(kiln), 50_000 * WAD);
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 50_000 * WAD);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 50_000 * WAD);
         uint256 mkrSupply = TestGem(MKR).totalSupply();
         assertTrue(mkrSupply > 0);
 
         uint256 _est = estimate(50_000 * WAD);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(MKR).balanceOf(address(user)), 0);
+        assertEq(TestGem(MKR).balanceOf(address(user)), 0);
 
         kiln.file("yen", 0);
         kiln.fire();
 
-        assertTrue(GemLike(DAI).balanceOf(address(kiln)) < 50_000 * WAD);
-        assertEq(GemLike(MKR).balanceOf(address(user)), _est);
+        assertTrue(TestGem(DAI).balanceOf(address(kiln)) < 50_000 * WAD);
+        assertEq(TestGem(MKR).balanceOf(address(user)), _est);
     }
 
     // Lot is 50k, ensure we can still fire if balance is lower than lot
     function testFireLtLot() public {
         mintDai(address(kiln), 20_000 * WAD);
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 20_000 * WAD);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 20_000 * WAD);
         uint256 mkrSupply = TestGem(MKR).totalSupply();
         assertTrue(mkrSupply > 0);
 
         uint256 _est = estimate(20_000 * WAD);
         assertTrue(_est > 0);
 
-        assertEq(GemLike(MKR).balanceOf(address(user)), 0);
+        assertEq(TestGem(MKR).balanceOf(address(user)), 0);
 
         kiln.fire();
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 0);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 0);
         assertEq(TestGem(MKR).totalSupply(), mkrSupply);
-        assertEq(GemLike(MKR).balanceOf(address(user)), _est);
+        assertEq(TestGem(MKR).balanceOf(address(user)), _est);
     }
 
     // Ensure we only sell off the lot size
     function testFireGtLot() public {
         mintDai(address(kiln), 100_000 * WAD);
 
-        assertEq(GemLike(DAI).balanceOf(address(kiln)), 100_000 * WAD);
+        assertEq(TestGem(DAI).balanceOf(address(kiln)), 100_000 * WAD);
 
         uint256 _est = estimate(kiln.lot());
         assertTrue(_est > 0);
@@ -246,9 +293,9 @@ contract KilnTest is Test {
         kiln.fire();
 
         // Due to liquidity constrants, not all of the tokens may be sold
-        assertTrue(GemLike(DAI).balanceOf(address(kiln)) >= 50_000 * WAD);
-        assertTrue(GemLike(DAI).balanceOf(address(kiln)) < 100_000 * WAD);
-        assertEq(GemLike(MKR).balanceOf(address(user)), _est);
+        assertTrue(TestGem(DAI).balanceOf(address(kiln)) >= 50_000 * WAD);
+        assertTrue(TestGem(DAI).balanceOf(address(kiln)) < 100_000 * WAD);
+        assertEq(TestGem(MKR).balanceOf(address(user)), _est);
     }
 
     function testFireMulti() public {
@@ -271,7 +318,7 @@ contract KilnTest is Test {
         kiln.file("scope", 1 hours);
         kiln.file("yen", 120 * WAD / 100); // only swap if price rose by 20% vs twap
 
-        uint256 mkrBefore = GemLike(MKR).balanceOf(address(this));
+        uint256 mkrBefore = TestGem(MKR).balanceOf(address(this));
 
         // drive down MKR out amount with big DAI->MKR swap
         swap(DAI, 10_000_000 * WAD);
@@ -293,7 +340,7 @@ contract KilnTest is Test {
         kiln.fire();
 
         // drive MKR out amount back up
-        swap(MKR, GemLike(MKR).balanceOf(address(this)) - mkrBefore);
+        swap(MKR, TestGem(MKR).balanceOf(address(this)) - mkrBefore);
 
         // fire should succeed after MKR amount rose vs twap
         kiln.fire();
