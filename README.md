@@ -1,5 +1,7 @@
 # dss-kiln
 
+![Build Status](https://github.com/makerdao/dss-kiln/actions/workflows/.github/workflows/tests.yml/badge.svg?branch=master)
+
 Permissionless token purchase and disposition module for protocols.
 
 ### Requirements
