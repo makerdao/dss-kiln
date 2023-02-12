@@ -45,6 +45,15 @@ interface UniswapRouterV2Like {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
 }
 
 contract KilnUniV2LPSwap is KilnBase {
@@ -91,7 +100,7 @@ contract KilnUniV2LPSwap is KilnBase {
             _halfLot,          // amountADesired
             _swapped,          // amountBDesired
             1,                 // amountAMin
-            _swapped,          // amountBMin
+            _swapped,          // amountBMin // irrelevant - can be very large
             receiver,          // to
             block.timestamp);  // deadline
         _swapped = _liquidity;
