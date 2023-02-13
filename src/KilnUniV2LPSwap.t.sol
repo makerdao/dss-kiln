@@ -210,15 +210,19 @@ contract KilnTest is Test {
         // final profit and loss calculation
         uint256 attackerEndTotal = GemLike(DAI).balanceOf(address(this)) +
                                    GemLike(MKR).balanceOf(address(this)) * fairPrice;
-        console.log("attacker profit %s", (attackerEndTotal - attackerInitialTotal) / WAD);
+        console.log("attacker profit:");
+        console.logInt((int256(attackerEndTotal) - int256(attackerInitialTotal)) / int256(WAD));
 
         uint256 kilnEndTotal = getKilnTotal(address(user));
-        console.log("kiln loss %s", (kilnInitialTotal - kilnEndTotal) / WAD);
+        console.log("kiln loss:");
+        console.logInt((int256(kilnInitialTotal) - int256(kilnEndTotal)) / int256(WAD));
+
         //////////////// end attacker code ///////////////////////
 
         assertGt(GemLike(kiln.pairToken()).balanceOf(address(user)), 0);
     }
 
+    // this was the initial setting of this test (5M liquidity each side)
     // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
     function testFireV2Single5MInitialLiquidity() public {
         uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
@@ -228,11 +232,22 @@ contract KilnTest is Test {
         fireV2Single(initialDaiLiquidity, depositDai, skewDai);
     }
 
+    // this test shows that with a bit less initial liquidity attacker can be profitable and kiln can get rekt
     // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
     function testFireV2Single3MInitialLiquidity() public {
         uint256 initialDaiLiquidity = 3_000_000 * WAD;
         uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
         uint256 skewDai    = 500_000_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
+    // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
+    function testFireV2Single20KInitialLiquidity() public {
+        uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 500_000_000 * WAD;
 
         fireV2Single(initialDaiLiquidity, depositDai, skewDai);
     }
