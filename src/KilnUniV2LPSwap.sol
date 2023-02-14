@@ -64,12 +64,29 @@ contract KilnUniV2LPSwap is KilnBase {
     address public immutable pairToken;
     address public immutable receiver;
 
-    event LogI(uint256);
+    uint256 internal constant WAD = 10 ** 18;
+
+    uint256 public max;  // [WAD] Maximum acceptable buy price in sell (WAD)
 
     constructor(address _sell, address _buy, address _uniV2Router, address _receiver) KilnBase(_sell, _buy) {
         receiver = _receiver;
         uniV2Router = _uniV2Router;
         pairToken = UniswapRouterV2Like(_uniV2Router).factory().pairFor(_sell, _buy);
+    }
+
+    //rounds to zero if x*y < WAD / 2
+    function _wmul(uint x, uint y) internal pure returns (uint z) {
+        z = (x * y) + (WAD / 2) / WAD;
+    }
+
+    function file(bytes32 what, uint256 data) public override auth {
+        if (what == "max") {
+            max = data;
+        } else {
+            super.file(what, data);
+            return;
+        }
+        emit File(what, data);
     }
 
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
@@ -82,11 +99,12 @@ contract KilnUniV2LPSwap is KilnBase {
         _path[0] = sell;
         _path[1] = buy;
 
+        uint256 _amountOutMin = _wmul(_halfLot, max);
 
         // Step 1: Swap half of sell token for buy token.
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _halfLot,          // amountIn
-            0,                 // amountOutMin  // TODO: consider slippage protection here
+            _amountOutMin,     // amountOutMin
             _path,             // path
             address(this),     // to
             block.timestamp);  // deadline
