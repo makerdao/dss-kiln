@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2022 Dai Foundation <www.daifoundation.org>
+// SPDX-FileCopyrightText: © 2023 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,7 @@
 
 pragma solidity ^0.8.14;
 
+import "forge-std/Test.sol"; // TODO: remove
 import {KilnBase, GemLike} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 
@@ -40,13 +41,13 @@ interface UniswapV2Router02Like {
     function addLiquidity(
         address tokenA,
         address tokenB,
-        uint amountADesired,
-        uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
         address to,
-        uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidity);
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
 contract Recipe2 is KilnBase, TwapProduct {
@@ -132,8 +133,8 @@ contract Recipe2 is KilnBase, TwapProduct {
         uint256 halfLot = lot / 2;
         GemLike(sell).approve(uniV3Router, halfLot);
 
-        bytes   memory _path = path;
-        uint256        _yen  = yen;
+        bytes memory _path = path;
+        uint256 _yen  = yen;
         uint256 amountMin = (_yen != 0) ? quote(_path, halfLot, uint32(scope)) * _yen / WAD : 0;
 
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
@@ -144,10 +145,11 @@ contract Recipe2 is KilnBase, TwapProduct {
             amountOutMinimum: amountMin
         });
         uint256 bought = SwapRouterLike(uniV3Router).exactInput(params);
+        console.log("halfLot %s bought %s price %s", halfLot, bought, halfLot / bought); // TODO: remove
 
         GemLike(sell).approve(uniV2Router, halfLot);
         GemLike(buy).approve(uniV2Router, bought);
-        (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({
+        (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({ // TODO: can remove amountA, added it for debug
             tokenA:         sell,
             tokenB:         buy,
             amountADesired: halfLot,
@@ -158,10 +160,12 @@ contract Recipe2 is KilnBase, TwapProduct {
             deadline:       block.timestamp
         });
         swapped = liquidity;
+        console.log("mkr deposited %s liquidity %s", amountB, liquidity); // TODO: remove
 
         // If not all buy tokens were used, send the remainder to the receiver
         if (bought > amountB) {
             GemLike(buy).transfer(receiver, bought - amountB);
+            console.log("sent remaining mkr %s ", bought - amountB); // TODO: remove
         }
     }
 
