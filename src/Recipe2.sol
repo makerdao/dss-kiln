@@ -52,9 +52,9 @@ interface UniswapV2Router02Like {
 
 contract Recipe2 is KilnBase, TwapProduct {
     uint256 public scope; // [Seconds]  Time period for TWAP calculations
-    uint256 public yen;   // [WAD]      Relative multiplier of the V3 TWAP price to insist on in the UniV3 trade
+    uint256 public yen;   // [WAD]      Relative multiplier of the Univ3 TWAP price to insist on in the UniV3 trade
                           //            For example: 0.98 * WAD allows 2% worse price than the V3 TWAP
-    uint256 public zen;   // [WAD]      Allowed Univ2 deviations from Univ3's traded price. Must be <= WAD
+    uint256 public zen;   // [WAD]      Allowed Univ2 deposit price deviations from the Univ3 TWAP price. Must be <= WAD
                           //            For example: 0.97 * WAD allows 3% price deviation to either side.
     bytes   public path;  //            ABI-encoded UniV3 compatible path
 
@@ -68,7 +68,7 @@ contract Recipe2 is KilnBase, TwapProduct {
     // @dev In order to complete fire has to trade on UniV3 and deposit to UniV2. With the initial constructor values,
     //      fire will trade on Univ3 only when the amount of tokens received is equal or better than the Univ3
     //      1 hour average price.
-    //      It will then deposit to Univ2 only if the Univ2 price exactly matches the Univ3 traded price
+    //      It will then deposit to Univ2 only if the Univ2 price exactly matches the Univ3 TWAP price
     //      (unlikely, therefore at least zen should be reduced from default to support deviations to either direction).
     //
     // @param _sell          the contract address of the token that will be sold
@@ -104,23 +104,27 @@ contract Recipe2 is KilnBase, TwapProduct {
     */
     function file(bytes32 what, bytes calldata data) external auth {
         if (what == "path") path = data;
-        else revert("KilnUniV3/file-unrecognized-param");
+        else revert("Recipe2/file-unrecognized-param");
         emit File(what, data);
     }
 
     /**
         @dev Auth'ed function to update yen, scope, or base contract derived values
-             Warning - setting `yen` or `zen` as 0 or another low value highly increases the susceptibility to oracle manipulation attacks
+             Warning - setting `yen` or `zen` as a low value highly increases the susceptibility to oracle manipulation attacks
              Warning - a low `scope` increases the susceptibility to oracle manipulation attacks
         @param what   Tag of value to update
         @param data   Value to update
     */
     function file(bytes32 what, uint256 data) public override auth {
-        if      (what == "yen") yen = data;
-        else if (what == "zen") zen = data;
-        else if (what == "scope") {
-            require(data > 0, "KilnUniV3/zero-scope");
-            require(data <= uint32(type(int32).max), "KilnUniV3/scope-overflow");
+        if (what == "yen") {
+            require(yen > 0, "Recipe2/zero-yen");
+            yen = data;
+        }  else if (what == "zen")  {
+            require(zen > 0, "Recipe2/zero-zen");
+            zen = data;
+        }  else if (what == "scope") {
+            require(data > 0, "Recipe2/zero-scope");
+            require(data <= uint32(type(int32).max), "Recipe2/scope-overflow");
             scope = data;
         } else {
             super.file(what, data);
@@ -129,43 +133,65 @@ contract Recipe2 is KilnBase, TwapProduct {
         emit File(what, data);
     }
 
+    struct Workspace { // TODO: consider moving
+        uint256 halfLot;
+        bytes path;
+        uint256 yen;
+        uint256 zen;
+        uint256 quote;
+        uint256 bought;
+    }
+
     function _swap(uint256 lot) internal override returns (uint256 swapped) {
-        uint256 halfLot = lot / 2;
-        GemLike(sell).approve(uniV3Router, halfLot);
 
-        bytes memory _path = path;
-        uint256 _yen  = yen;
-        uint256 amountMin = (_yen != 0) ? quote(_path, halfLot, uint32(scope)) * _yen / WAD : 0;
+        Workspace memory ws = Workspace({
+            halfLot: lot / 2,
+            path:    path,
+            yen:     yen,
+            zen:     zen,
+            quote:   0,
+            bought:  0
+        });
+        ws.quote = quote(ws.path, ws.halfLot, uint32(scope));
 
+        GemLike(sell).approve(uniV3Router, ws.halfLot);
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
-            path:             _path,
+            path:             ws.path,
             recipient:        address(this),
             deadline:         block.timestamp,
-            amountIn:         halfLot,
-            amountOutMinimum: amountMin
+            amountIn:         ws.halfLot,
+            amountOutMinimum: ws.quote * ws.yen / WAD
         });
-        uint256 bought = SwapRouterLike(uniV3Router).exactInput(params);
-        console.log("halfLot %s bought %s price %s", halfLot, bought, halfLot / bought); // TODO: remove
+        ws.bought = SwapRouterLike(uniV3Router).exactInput(params);
+        console.log("halfLot %s bought %s price %s", ws.halfLot, ws.bought, ws.halfLot / ws.bought); // TODO: remove
 
-        GemLike(sell).approve(uniV2Router, halfLot);
-        GemLike(buy).approve(uniV2Router, bought);
-        (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({ // TODO: can remove amountA, added it for debug
+        // In case the `sell` token deposit amount needs to be insisted on it means the full `bought` amount of buy tokens are deposited.
+        // Therefore we want at least the reference price (halfLot / quote) factored by zen.
+        uint256 sellDepositMin = (ws.bought * ws.halfLot / ws.quote) * ws.zen / WAD;
+
+        // In case the `buy` token deposit amount needs to be insisted on it means the full `halfLot` amount of sell tokens are deposited.
+        // As `halflot` was also used in the quote calculation, it represents the exact reference price and only needs to be factored by zen
+        uint256 buyDepositMin  = ws.quote * ws.zen / WAD;
+
+        GemLike(sell).approve(uniV2Router, ws.halfLot);
+        GemLike(buy).approve(uniV2Router, ws.bought);
+        (uint256 amountA, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({ // TODO: remove amountA as it is not needed
             tokenA:         sell,
             tokenB:         buy,
-            amountADesired: halfLot,
-            amountBDesired: bought,
-            amountAMin:     halfLot * zen / WAD,
-            amountBMin:     bought  * zen / WAD,
+            amountADesired: ws.halfLot,
+            amountBDesired: ws.bought,
+            amountAMin:     sellDepositMin,
+            amountBMin:     buyDepositMin,
             to:             receiver,
             deadline:       block.timestamp
         });
         swapped = liquidity;
-        console.log("mkr deposited %s liquidity %s", amountB, liquidity); // TODO: remove
+        console.log("dai deposited %s mkr deposited %s liquidity %s", amountA, amountB, liquidity); // TODO: remove
 
         // If not all buy tokens were used, send the remainder to the receiver
-        if (bought > amountB) {
-            GemLike(buy).transfer(receiver, bought - amountB);
-            console.log("sent remaining mkr %s ", bought - amountB); // TODO: remove
+        if (ws.bought > amountB) {
+            GemLike(buy).transfer(receiver, ws.bought - amountB);
+            console.log("sent remaining mkr %s ", ws.bought - amountB); // TODO: remove
         }
     }
 
