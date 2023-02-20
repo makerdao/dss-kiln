@@ -19,21 +19,48 @@ pragma solidity ^0.8.14;
 import "forge-std/Test.sol";
 import "./Recipe2.sol";
 
+import "src/uniV2/UniswapV2Library.sol";
+import "src/uniV2/IUniswapV2Pair.sol";
+
 interface TestGem {
     function totalSupply() external view returns (uint256);
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/UNIV3Quoter.sol#L106-L122
-interface UNIV3Quoter {
+interface UNIV3Quoter { // TODO: handle caps
     function quoteExactInput(
         bytes calldata path,
         uint256 amountIn
     ) external returns (uint256 amountOut);
 }
 
+interface ExtendedUNIV2Router is UniswapV2Router02Like {
+    function factory() external view returns (address);
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external returns (uint256 amountOut);
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+interface UniswapV2FactoryLike {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+
+}
+
+interface UniswapV2PairLike {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+}
+
 contract User {}
 
 contract KilnTest is Test {
+
+    using UniswapV2Library for *;
+
     Recipe2 kiln;
     UNIV3Quoter univ3Quoter;
     User user;
@@ -70,12 +97,47 @@ contract KilnTest is Test {
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
         kiln.file("zen", 50 * WAD / 100); // Allow large deviations by default
+
+        topUpLiquidity();
     }
 
 
     function mintDai(address usr, uint256 amt) internal {
         deal(DAI, usr, amt);
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);
+    }
+
+    function topUpLiquidity() internal {
+        uint256 daiAmt = 1_000_000 * WAD; // TODO: need to start initial liquidity more wisely - first change price, then deposit smaller amount, then start with small lot
+        uint256 mkrAmt = 1000 * WAD;
+
+        uint reserveA;
+        uint reserveB;
+        (address token0,) = UniswapV2Library.sortTokens(DAI, MKR);
+        address pairToken = UniswapV2Library.pairFor(ExtendedUNIV2Router(UNIV2ROUTER).factory(), DAI, MKR);
+
+        (uint reserve0, uint reserve1,) = UniswapV2PairLike(pairToken).getReserves();
+        (reserveA, reserveB) = DAI == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+
+        mkrAmt = daiAmt / (reserveA / reserveB) - 10 * WAD;
+
+        deal(DAI, address(this), daiAmt);
+        deal(MKR, address(this), mkrAmt);
+
+        GemLike(DAI).approve(UNIV2ROUTER, daiAmt);
+        GemLike(MKR).approve(UNIV2ROUTER, mkrAmt);
+
+        UniswapV2Router02Like(UNIV2ROUTER).addLiquidity(
+            MKR,
+            DAI,
+            mkrAmt,
+            daiAmt,
+            0,
+            0,
+            address(this),
+            block.timestamp);
+
+        assertGt(GemLike(pairToken).balanceOf(address(this)), 0);
     }
 
     /*
@@ -172,7 +234,7 @@ contract KilnTest is Test {
     }
     */
 
-    function testFire() public { // TODO: can remove once we have the other tests
+    function testFire1() public { // TODO: can remove once we have the other tests?
         mintDai(address(kiln), 50_000 * WAD);
 
         assertEq(GemLike(UNIV2DAIMKRLP).balanceOf(address(user)), 0);
@@ -185,20 +247,192 @@ contract KilnTest is Test {
         assertEq(GemLike(MKR).balanceOf(address(kiln)), 0);
     }
 
-    function testFireYenMuchLessThanTwap() public {}
-    function testFireYenMuchMoreThanTwap() public {}
-    function testFireYenZero() public {}
+
+    /*
+
+    Given a reference TWAP out amount, we want to test the following scenarios.
+    Note that `Higher` stands for higher out amount than the reference, while `Lower` stands for lower out amount than the reference.
+
+    testFire
+    ├── Univ3Higher
+    │         ├── YenAllows (1.00)
+    │         │         ├── Univ2Higher
+    │         │         │         ├── ZenAllows (0.95)
+    │         │         │         └── ZenBlocks (1.0)
+    │         │         └── Univ2Lower
+    │         │             ├── ZenAllows (0.95)
+    │         │             └── ZenBlocks (1.00)
+    │         └── YenBlocks (1.05)
+    └── Univ3Lower
+              ├── YenAllows (0.95)
+              │         ├── Univ2Higher
+              │         │         ├── ZenAllows (0.95)
+              │         │         └── ZenBlocks (1.00)
+              │         └── Univ2Lower
+              │             ├── ZenAllows (0.95)
+              │             └── ZenBlocks (1.00)
+              └── YenBlocks (1.00)
+    */
+
+    function getRefOutAMount(uint256 amountIn) internal returns (uint256) {
+        return kiln.quote(kiln.path(), amountIn, uint32(kiln.scope()));
+    }
+
+
+
+    function changeUniv3Price(uint256 amountIn, uint256 refOutAmount, bool reachHigher) internal {
+        uint256 current = univ3Quoter.quoteExactInput(path, amountIn);
+        console.log("current: %s", current);
+
+        // TODO: change actor who does this to address(123) or something
+        if (reachHigher) {
+            while (current < refOutAmount) {
+
+                // trade mkr to dai
+                uint256 mkrAmount = 20 * WAD;
+                bytes memory path_ = abi.encodePacked(MKR, uint24(3000), WETH, uint24(500), USDC, uint24(100), DAI);
+                deal(MKR, address(this), mkrAmount);
+                GemLike(MKR).approve(UNIV3ROUTER, mkrAmount);
+                    SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
+                    path:             path_,
+                    recipient:        address(this),
+                    deadline:         block.timestamp,
+                    amountIn:         mkrAmount,
+                    amountOutMinimum: 0
+                });
+                SwapRouterLike(UNIV3ROUTER).exactInput(params);
+
+                current = univ3Quoter.quoteExactInput(path, amountIn);
+                console.log("current: %s", current);
+            }
+        } else {
+            while (current > refOutAmount) {
+
+                // trade dai mkr
+                uint256 daiAmount = 20_000 * WAD;
+                deal(DAI, address(this), daiAmount);
+                GemLike(DAI).approve(UNIV3ROUTER, daiAmount);
+                SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
+                path:             path,
+                recipient:        address(this),
+                deadline:         block.timestamp,
+                amountIn:         daiAmount,
+                amountOutMinimum: 0
+                });
+                SwapRouterLike(UNIV3ROUTER).exactInput(params);
+
+                current = univ3Quoter.quoteExactInput(path, amountIn);
+                console.log("current: %s", current);
+            }
+        }
+    }
+
+    function getUniv2AmountOut(uint256 amountIn) internal returns (uint256 amountOut) {
+        uint reserveA;
+        uint reserveB;
+
+        (address token0,) = UniswapV2Library.sortTokens(DAI, MKR);
+        address pairToken = UniswapV2Library.pairFor(    ExtendedUNIV2Router(UNIV2ROUTER).factory(), DAI, MKR);
+
+        console.log("pairToken: %s", pairToken);
+        (uint reserve0, uint reserve1,) = UniswapV2PairLike(pairToken).getReserves();
+        (reserveA, reserveB) = DAI == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+
+        console.log("reserveA: %s", reserveA);
+        console.log("reserveB: %s", reserveB);
+
+        amountOut = ExtendedUNIV2Router(UNIV2ROUTER).getAmountOut(amountIn, reserveA, reserveB);
+    }
+
+    function changeUniv2Price(uint256 amountIn, uint256 refOutAmount, bool reachHigher) internal {
+
+        uint256 current = getUniv2AmountOut(amountIn);
+        console.log("refOutAmount: %s", refOutAmount);
+        console.log("current: %s", current);
+
+
+        // TODO: change actor who does this to address(123) or something
+        if (reachHigher) {
+            while (current < refOutAmount) {
+
+                // trade mkr to dai
+
+                address[] memory _path = new address[](2);
+                _path[0] = MKR;
+                _path[1] = DAI;
+
+                uint256 mkrAmount = 1 * WAD / 10;
+                deal(MKR, address(this), mkrAmount);
+                GemLike(MKR).approve(UNIV2ROUTER, mkrAmount);
+                ExtendedUNIV2Router(UNIV2ROUTER).swapExactTokensForTokens(
+                    mkrAmount,          // amountIn
+                    0,                 // amountOutMin
+                    _path,             // path
+                    address(this),     // to
+                    block.timestamp
+                );  // deadline
+
+                current = getUniv2AmountOut(amountIn);
+                console.log("current: %s refOutAmount: %s", current, refOutAmount);
+            }
+        } else {
+            while (current > refOutAmount) {
+
+                // trade dai to mkr
+                address[] memory _path = new address[](2);
+                _path[0] = DAI;
+                _path[1] = MKR;
+
+                uint256 daiAmount = 1000 * WAD;
+                deal(DAI, address(this), daiAmount);
+                GemLike(DAI).approve(UNIV2ROUTER, daiAmount);
+                ExtendedUNIV2Router(UNIV2ROUTER).swapExactTokensForTokens(
+                    daiAmount,          // amountIn
+                    0,                 // amountOutMin
+                    _path,             // path
+                    address(this),     // to
+                    block.timestamp
+                );  // deadline
+
+                current = getUniv2AmountOut(amountIn);
+                console.log("current: %s", current);            }
+        }
+    }
+
+
+    function testFireUniv3HigherYenAllowsUniv2HigherZenAllows() public {
+        // get ref price
+        uint256 ref = getRefOutAMount(20_000 * WAD);
+        console.log("ref: %s", ref);
+
+        // drive up univ3 out amount
+        changeUniv3Price(20_000 * WAD, ref, true);
+
+        // set yen to 1.00
+        kiln.file("yen", 100 * WAD / 100);
+
+        // drive up univ2 out amount
+        changeUniv2Price(20_000 * WAD, ref, true);
+
+        // set zen to 0.95
+        kiln.file("zen", 95 * WAD / 100);
+
+        // TODO: this currently fail
+        // since there's almost no liquidity need to make sure when driving price up/dpwn that the price will be very close to the ref
+        // also need to consider seeding with small amount of initial liquidity
+        mintDai(address(kiln), 50_000 * WAD);
+        kiln.fire();
+
+        // fire
+        // check success
+
+    }
+
 
     function testFireAfterLowTwap() public {}
     function testFireAfterHighTwap() public {}
 
-    function testFireMkrUpLessThanZen() public {}
-    function testFireMkrUpMoreThanZen() public {}
-    function testFireMkrDownLessThanZen() public {}
-    function testFireMkrDownMoreThanZen() public {}
 
-    function testFireZenWad() public {}
-    function testFireZenZero() public {}
 
     /*
     function testFireYenMuchLessThanTwap() public {

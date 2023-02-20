@@ -173,6 +173,8 @@ contract Recipe2 is KilnBase, TwapProduct {
         // As `halflot` was also used in the quote calculation, it represents the exact reference price and only needs to be factored by zen
         uint256 buyDepositMin  = ws.quote * ws.zen / WAD;
 
+        console.log("sellDepositMin %s buyDepositMin %s", sellDepositMin, buyDepositMin); // TODO: remove
+
         GemLike(sell).approve(uniV2Router, ws.halfLot);
         GemLike(buy).approve(uniV2Router, ws.bought);
         (uint256 amountA, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({ // TODO: remove amountA as it is not needed
