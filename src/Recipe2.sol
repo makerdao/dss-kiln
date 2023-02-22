@@ -16,7 +16,6 @@
 
 pragma solidity ^0.8.14;
 
-import "forge-std/Test.sol"; // TODO: remove
 import {KilnBase, GemLike} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 
@@ -117,10 +116,10 @@ contract Recipe2 is KilnBase, TwapProduct {
     */
     function file(bytes32 what, uint256 data) public override auth {
         if (what == "yen") {
-            require(yen > 0, "Recipe2/zero-yen");
+            require(data > 0, "Recipe2/zero-yen");
             yen = data;
         }  else if (what == "zen")  {
-            require(zen > 0, "Recipe2/zero-zen");
+            require(data > 0, "Recipe2/zero-zen");
             zen = data;
         }  else if (what == "scope") {
             require(data > 0, "Recipe2/zero-scope");
@@ -133,8 +132,9 @@ contract Recipe2 is KilnBase, TwapProduct {
         emit File(what, data);
     }
 
-    struct Workspace { // TODO: consider moving
-        uint256 halfLot;
+    // TODO: try moving to regular stack vars, need to avoid stack too deep
+    struct Workspace {
+        uint256 halfIn;
         bytes path;
         uint256 yen;
         uint256 zen;
@@ -142,45 +142,42 @@ contract Recipe2 is KilnBase, TwapProduct {
         uint256 bought;
     }
 
-    function _swap(uint256 lot) internal override returns (uint256 swapped) {
+    function _swap(uint256 inAmount) internal override returns (uint256 swapped) {
 
         Workspace memory ws = Workspace({
-            halfLot: lot / 2,
+            halfIn:  inAmount / 2,
             path:    path,
             yen:     yen,
             zen:     zen,
             quote:   0,
             bought:  0
         });
-        ws.quote = quote(ws.path, ws.halfLot, uint32(scope));
+        ws.quote = quote(ws.path, ws.halfIn, uint32(scope));
 
-        GemLike(sell).approve(uniV3Router, ws.halfLot);
+        GemLike(sell).approve(uniV3Router, ws.halfIn);
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
             path:             ws.path,
             recipient:        address(this),
             deadline:         block.timestamp,
-            amountIn:         ws.halfLot,
+            amountIn:         ws.halfIn,
             amountOutMinimum: ws.quote * ws.yen / WAD
         });
         ws.bought = SwapRouterLike(uniV3Router).exactInput(params);
-        console.log("halfLot %s bought %s price %s", ws.halfLot, ws.bought, ws.halfLot / ws.bought); // TODO: remove
 
         // In case the `sell` token deposit amount needs to be insisted on it means the full `bought` amount of buy tokens are deposited.
-        // Therefore we want at least the reference price (halfLot / quote) factored by zen.
-        uint256 sellDepositMin = (ws.bought * ws.halfLot / ws.quote) * ws.zen / WAD;
+        // Therefore we want at least the reference price (halfIn / quote) factored by zen.
+        uint256 sellDepositMin = (ws.bought * ws.halfIn / ws.quote) * ws.zen / WAD;
 
-        // In case the `buy` token deposit amount needs to be insisted on it means the full `halfLot` amount of sell tokens are deposited.
+        // In case the `buy` token deposit amount needs to be insisted on it means the full `halfIn` amount of sell tokens are deposited.
         // As `halflot` was also used in the quote calculation, it represents the exact reference price and only needs to be factored by zen
         uint256 buyDepositMin  = ws.quote * ws.zen / WAD;
 
-        console.log("sellDepositMin %s buyDepositMin %s", sellDepositMin, buyDepositMin); // TODO: remove
-
-        GemLike(sell).approve(uniV2Router, ws.halfLot);
+        GemLike(sell).approve(uniV2Router, ws.halfIn);
         GemLike(buy).approve(uniV2Router, ws.bought);
-        (uint256 amountA, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({ // TODO: remove amountA as it is not needed
+        (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({
             tokenA:         sell,
             tokenB:         buy,
-            amountADesired: ws.halfLot,
+            amountADesired: ws.halfIn,
             amountBDesired: ws.bought,
             amountAMin:     sellDepositMin,
             amountBMin:     buyDepositMin,
@@ -188,12 +185,10 @@ contract Recipe2 is KilnBase, TwapProduct {
             deadline:       block.timestamp
         });
         swapped = liquidity;
-        console.log("dai deposited %s mkr deposited %s liquidity %s", amountA, amountB, liquidity); // TODO: remove
 
         // If not all buy tokens were used, send the remainder to the receiver
         if (ws.bought > amountB) {
             GemLike(buy).transfer(receiver, ws.bought - amountB);
-            console.log("sent remaining mkr %s ", ws.bought - amountB); // TODO: remove
         }
     }
 
