@@ -119,48 +119,47 @@ contract KilnTest is Test {
         return kiln.quote(kiln.path(), amountIn, uint32(kiln.scope()));
     }
 
-    function changeUniv3Price(uint256 amountIn, uint256 refOutAmount, bool reachHigher) internal {
+    function changeUniv3Price(uint256 amountIn, uint256 minOutAmount, uint256 maxOutAMount) internal {
         uint256 current = univ3Quoter.quoteExactInput(path, amountIn);
-         console.log("changeUniv3Price current: %s", current);
+        console.log("univ3 minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
 
-        if (reachHigher) {
-            while (current < refOutAmount) {
+        while (current < minOutAmount) {
 
-                uint256 mkrAmount = 20 * WAD;
-                deal(MKR, address(this), mkrAmount);
-                GemLike(MKR).approve(UNIV3ROUTER, mkrAmount);
-                SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
+            uint256 mkrAmount = 20 * WAD;
+            deal(MKR, address(this), mkrAmount);
+            GemLike(MKR).approve(UNIV3ROUTER, mkrAmount);
+            SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
                 path:             abi.encodePacked(MKR, uint24(3000), WETH, uint24(500), USDC, uint24(100), DAI),
                 recipient:        address(this),
                 deadline:         block.timestamp,
                 amountIn:         mkrAmount,
                 amountOutMinimum: 0
-                });
-                SwapRouterLike(UNIV3ROUTER).exactInput(params);
+            });
+            SwapRouterLike(UNIV3ROUTER).exactInput(params);
 
-                current = univ3Quoter.quoteExactInput(path, amountIn);
-                 console.log("univ3 reach higher current: %s refOutAmount: %s", current, refOutAmount);
-            }
-        } else {
-            while (current > refOutAmount) {
+            current = univ3Quoter.quoteExactInput(path, amountIn);
+            console.log("univ3 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+        }
+        while (current > maxOutAMount) {
 
-                // trade dai mkr
-                uint256 daiAmount = 20_000 * WAD;
-                deal(DAI, address(this), daiAmount);
-                GemLike(DAI).approve(UNIV3ROUTER, daiAmount);
-                SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
+            // trade dai to mkr
+            uint256 daiAmount = 20_000 * WAD;
+            deal(DAI, address(this), daiAmount);
+            GemLike(DAI).approve(UNIV3ROUTER, daiAmount);
+            SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
                 path:             abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR),
                 recipient:        address(this),
                 deadline:         block.timestamp,
                 amountIn:         daiAmount,
                 amountOutMinimum: 0
-                });
-                SwapRouterLike(UNIV3ROUTER).exactInput(params);
+            });
+            SwapRouterLike(UNIV3ROUTER).exactInput(params);
 
-                current = univ3Quoter.quoteExactInput(path, amountIn);
-                 console.log("univ3 reach lower current: %s refOutAmount: %s", current, refOutAmount);
-            }
+            current = univ3Quoter.quoteExactInput(path, amountIn);
+            console.log("univ3 driving out amount down - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
+
+        assert(current >= minOutAmount && current <= maxOutAMount);
     }
 
     function getUniv2AmountOut(uint256 amountIn) internal returns (uint256 amountOut) {
@@ -196,7 +195,7 @@ contract KilnTest is Test {
             );  // deadline
 
             current = getUniv2AmountOut(amountIn);
-             console.log("univ2 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+            console.log("univ2 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
         while (current > maxOutAMount) {
 
@@ -324,7 +323,7 @@ contract KilnTest is Test {
     │         │         └── Univ2Lower
     │         │             ├── ZenAllows (0.95)
     │         │             └── ZenBlocks (1.00)
-    │         └── YenBlocks (1.05) V
+    │         └── YenBlocks (1.05)
     └── Univ3Lower
               ├── YenAllows (0.95)
               │         ├── Univ2Higher
@@ -337,7 +336,7 @@ contract KilnTest is Test {
     */
 
     function testFireUniv3HigherYenAllowsUniv2HigherZenAllows() public {
-        changeUniv3Price(halfLot, refHalfLot, true);
+        changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
@@ -352,7 +351,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3HigherYenAllowsUniv2HigherZenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, true);
+        changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
@@ -367,7 +366,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3HigherYenAllowsUniv2LowerZenAllows() public {
-        changeUniv3Price(halfLot, refHalfLot, true);
+        changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
@@ -382,7 +381,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3HigherYenAllowsUniv2LowerZenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, true);
+        changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
@@ -394,7 +393,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3HigherYenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, true);
+        changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 102 * WAD / 100);
 
         deal(DAI, address(kiln), 50_000 * WAD);
@@ -404,7 +403,7 @@ contract KilnTest is Test {
 
     // this
     function testFireUniv3LowerYenAllowsUniv2HigherZenAllows() public {
-        changeUniv3Price(halfLot, refHalfLot, false);
+        changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
@@ -420,7 +419,7 @@ contract KilnTest is Test {
 
 
     function testFireUniv3LowerYenAllowsUniv2HigherZenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, false);
+        changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
@@ -432,7 +431,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3LowerYenAllowsUniv2LowerZenAllows() public {
-        changeUniv3Price(halfLot, refHalfLot, false);
+        changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
@@ -447,7 +446,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3LowerYenAllowsUniv2LowerZenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, false);
+        changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
         changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
@@ -459,7 +458,7 @@ contract KilnTest is Test {
     }
 
     function testFireUniv3LowerYenBlocks() public {
-        changeUniv3Price(halfLot, refHalfLot, false);
+        changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 1 * WAD);
 
         deal(DAI, address(kiln), 50_000 * WAD);
