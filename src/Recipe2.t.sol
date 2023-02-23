@@ -104,7 +104,7 @@ contract KilnTest is Test {
 
         // When changing univ3 price we'll have to relate to half lot amount, as that's what fire() trades there
         refHalfLot = getRefOutAMount(halfLot);
-        console.log("refHalfLot: %s", refHalfLot);
+        // console.log("refHalfLot: %s", refHalfLot);
 
         // When changing univ2 price we'll use one WAD as reference fire only deposit theres (no price change)
         refOneWad = getRefOutAMount(WAD);
@@ -121,7 +121,7 @@ contract KilnTest is Test {
 
     function changeUniv3Price(uint256 amountIn, uint256 minOutAmount, uint256 maxOutAMount) internal {
         uint256 current = univ3Quoter.quoteExactInput(path, amountIn);
-        console.log("univ3 minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+        // console.log("univ3 minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
 
         while (current < minOutAmount) {
 
@@ -138,7 +138,7 @@ contract KilnTest is Test {
             SwapRouterLike(UNIV3ROUTER).exactInput(params);
 
             current = univ3Quoter.quoteExactInput(path, amountIn);
-            console.log("univ3 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+            // console.log("univ3 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
         while (current > maxOutAMount) {
 
@@ -156,7 +156,7 @@ contract KilnTest is Test {
             SwapRouterLike(UNIV3ROUTER).exactInput(params);
 
             current = univ3Quoter.quoteExactInput(path, amountIn);
-            console.log("univ3 driving out amount down - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+            // console.log("univ3 driving out amount down - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
 
         assert(current >= minOutAmount && current <= maxOutAMount);
@@ -175,7 +175,7 @@ contract KilnTest is Test {
 
     function changeUniv2Price(uint256 amountIn, uint256 minOutAmount, uint256 maxOutAMount) internal {
         uint256 current = getUniv2AmountOut(amountIn);
-         console.log("univ2 minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+         // console.log("univ2 minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
 
         while (current < minOutAmount) {
 
@@ -195,7 +195,7 @@ contract KilnTest is Test {
             );  // deadline
 
             current = getUniv2AmountOut(amountIn);
-            console.log("univ2 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+            // console.log("univ2 driving out amount up - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
         while (current > maxOutAMount) {
 
@@ -216,7 +216,7 @@ contract KilnTest is Test {
             );  // deadline
 
             current = getUniv2AmountOut(amountIn);
-            console.log("univ2 driving out amount down - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
+            // console.log("univ2 driving out amount down - minOutAmount: %s, current: %s, maxOutAmount: %s", minOutAmount, current, maxOutAMount);
         }
 
         assert(current >= minOutAmount && current <= maxOutAMount);
