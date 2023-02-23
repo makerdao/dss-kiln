@@ -16,6 +16,7 @@
 
 pragma solidity ^0.8.14;
 
+import "forge-std/Test.sol"; // TODO: remove
 import {KilnBase, GemLike} from "./KilnBase.sol";
 import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 
@@ -163,6 +164,7 @@ contract Recipe2 is KilnBase, TwapProduct {
             amountOutMinimum: ws.quote * ws.yen / WAD
         });
         ws.bought = SwapRouterLike(uniV3Router).exactInput(params);
+        console.log("ws.halfIn %s, bought %s", ws.halfIn, ws.bought);
 
         // In case the `sell` token deposit amount needs to be insisted on it means the full `bought` amount of buy tokens are deposited.
         // Therefore we want at least the reference price (halfIn / quote) factored by zen.
@@ -171,7 +173,7 @@ contract Recipe2 is KilnBase, TwapProduct {
         // In case the `buy` token deposit amount needs to be insisted on it means the full `halfIn` amount of sell tokens are deposited.
         // As `halflot` was also used in the quote calculation, it represents the exact reference price and only needs to be factored by zen
         uint256 buyDepositMin  = ws.quote * ws.zen / WAD;
-
+        console.log("sellDepositMin %s, buyDepositMin %s", sellDepositMin, buyDepositMin);
         GemLike(sell).approve(uniV2Router, ws.halfIn);
         GemLike(buy).approve(uniV2Router, ws.bought);
         (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({
