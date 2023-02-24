@@ -56,6 +56,10 @@ interface UniswapRouterV2Like {
     ) external returns (uint amountA, uint amountB);
 }
 
+interface PipLike {
+    function peek() external returns (bytes32, bool);
+}
+
 contract KilnUniV2LPSwap is KilnBase {
 
     using UniswapV2Library for *;
@@ -67,6 +71,7 @@ contract KilnUniV2LPSwap is KilnBase {
     uint256 internal constant WAD = 10 ** 18;
 
     uint256 public max;  // [WAD] Maximum acceptable buy price in sell (WAD)
+    address public pip;  // (Optional) pricing module
 
     constructor(address _sell, address _buy, address _uniV2Router, address _receiver) KilnBase(_sell, _buy) {
         receiver = _receiver;
@@ -89,18 +94,32 @@ contract KilnUniV2LPSwap is KilnBase {
         emit File(what, data);
     }
 
+    function file(bytes32 what, address data) public auth {
+        if (what == "pip") {
+            pip = data;
+        } else {
+            revert("KilnUniV2LPSwap/file-unrecognized-param");
+        }
+    }
+
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
 
         uint256 _halfLot = _amount / 2;
-
-        GemLike(sell).approve(uniV2Router, _amount);
 
         address[] memory _path = new address[](2);
         _path[0] = sell;
         _path[1] = buy;
 
-        uint256 _amountOutMin = _wmul(_halfLot, max);
+        uint256 _max = max;
 
+        if (pip != address(0)) {
+            (bytes32 val, bool has) = PipLike(pip).peek();
+            _max = (has) ? uint256(val) : _max;
+        }
+
+        uint256 _amountOutMin = _wmul(_halfLot, _max) / WAD;
+
+        GemLike(sell).approve(uniV2Router, _amount);
         // Step 1: Swap half of sell token for buy token.
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _halfLot,          // amountIn

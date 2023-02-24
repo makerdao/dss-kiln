@@ -18,6 +18,7 @@ pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
 import "./KilnUniV2LPSwap.sol";
+import "./test/DsValue.sol";
 
 interface TestGem {
     function totalSupply() external view returns (uint256);
@@ -70,6 +71,12 @@ contract KilnTest is Test {
 
         kiln.file("lot", 50000 * WAD);
         kiln.file("hop", 6 hours);
+    }
+
+    function setPip(uint256 val) internal returns (address pip) {
+        DSValue _pip = new DSValue();
+        _pip.poke(bytes32(val));
+        return address(_pip);
     }
 
     function topUpLiquidity(uint256 initialDaiLiquidity) internal {
@@ -234,8 +241,20 @@ contract KilnTest is Test {
 
     // this was the initial setting of this test (5M liquidity each side)
     // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
-    function testFireV2Single5MInitialLiquidityMin() public {
-        kiln.file("min", 600 * WAD);
+    function testFireV2Single5MInitialLiquidityMax() public {
+        kiln.file("max", 800 * WAD);
+
+        uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 200_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this was the initial setting of this test (5M liquidity each side)
+    // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
+    function testFireV2Single5MInitialLiquidityMaxPip() public {
+        kiln.file("pip", setPip(800 * WAD));
 
         uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
@@ -256,8 +275,20 @@ contract KilnTest is Test {
 
     // this test shows that with a bit less initial liquidity attacker can be profitable and kiln can get rekt
     // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
-    function testFireV2Single3MInitialLiquidityMin() public {
-        kiln.file("min", 600 * WAD);
+    function testFireV2Single3MInitialLiquidityMax() public {
+        kiln.file("max", 800 * WAD);
+
+        uint256 initialDaiLiquidity = 3_000_000 * WAD;
+        uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
+        uint256 skewDai    = 500_000_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this test shows that with a bit less initial liquidity attacker can be profitable and kiln can get rekt
+    // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
+    function testFireV2Single3MInitialLiquidityMaxPip() public {
+        kiln.file("pip", setPip(800 * WAD));
 
         uint256 initialDaiLiquidity = 3_000_000 * WAD;
         uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
@@ -278,8 +309,20 @@ contract KilnTest is Test {
 
     // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
     // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
-    function testFireV2Single20KInitialLiquidityMin() public {
-        kiln.file("min", 600 * WAD);
+    function testFireV2Single20KInitialLiquidityMax() public {
+        kiln.file("max", 600 * WAD);
+
+        uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 500_000_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
+    // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
+    function testFireV2Single20KInitialLiquidityMaxPip() public {
+        kiln.file("pip", setPip(800 * WAD));
 
         uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
