@@ -105,12 +105,11 @@ contract KilnUniV2LPSwap is KilnBase {
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
 
         uint256 _halfLot = _amount / 2;
+        uint256 _max = max;
 
         address[] memory _path = new address[](2);
         _path[0] = sell;
         _path[1] = buy;
-
-        uint256 _max = max;
 
         if (pip != address(0)) {
             (bytes32 val, bool has) = PipLike(pip).peek();
