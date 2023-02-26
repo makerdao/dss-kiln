@@ -17,7 +17,8 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./Recipe2.sol";
+import "src/Recipe2.sol";
+import "src/QuoterTwap.sol";
 
 import "src/uniV2/UniswapV2Library.sol";
 import "src/uniV2/IUniswapV2Pair.sol";
@@ -62,6 +63,7 @@ contract KilnTest is Test {
     using UniswapV2Library for *;
 
     Recipe2 kiln;
+    QuoterTwap qtwap;
     Univ3Quoter univ3Quoter;
     User user;
 
@@ -102,6 +104,10 @@ contract KilnTest is Test {
         kiln.file("path", path);
         halfLot = kiln.lot() / 2;
 
+        qtwap = new QuoterTwap(UNIV3FACTORY);
+        qtwap.file("path", path);
+        kiln.addQuoter(address(qtwap));
+
         // When changing univ3 price we'll have to relate to half lot amount, as that's what fire() trades there
         refHalfLot = getRefOutAMount(halfLot);
         // console.log("refHalfLot: %s", refHalfLot);
@@ -116,7 +122,7 @@ contract KilnTest is Test {
     }
 
     function getRefOutAMount(uint256 amountIn) internal view returns (uint256) {
-        return kiln.quote(kiln.path(), amountIn, uint32(kiln.scope()));
+        return qtwap.quote(address(0), address(0), amountIn);
     }
 
     function changeUniv3Price(uint256 amountIn, uint256 minOutAmount, uint256 maxOutAMount) internal {
@@ -254,6 +260,8 @@ contract KilnTest is Test {
         kiln.file("zen", 0);
     }
 
+    // TODO: move to new quoter
+    /*
     function testFileScope() public {
         vm.expectEmit(true, true, false, false);
         emit File(bytes32("scope"), 314);
@@ -266,10 +274,12 @@ contract KilnTest is Test {
         kiln.file("scope", 0);
     }
 
+
     function testFileScopeTooLarge() public {
         vm.expectRevert("Recipe2/scope-overflow");
         kiln.file("scope", uint32(type(int32).max) + 1);
     }
+    */
 
     function testFileBytesUnrecognized() public {
         vm.expectRevert("Recipe2/file-unrecognized-param");

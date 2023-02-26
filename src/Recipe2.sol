@@ -17,7 +17,6 @@
 pragma solidity ^0.8.14;
 
 import {KilnBase, GemLike} from "./KilnBase.sol";
-import {TwapProduct}       from "./uniV3/TwapProduct.sol";
 
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol
 interface SwapRouterLike {
@@ -49,13 +48,19 @@ interface UniswapV2Router02Like {
     ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
-contract Recipe2 is KilnBase, TwapProduct {
-    uint256 public scope; // [Seconds]  Time period for TWAP calculations
+interface Quoter {
+    function quote(address sell, address buy, uint256 amount) external returns (uint256 outAMount);
+}
+
+// TODO: update documentation to be general
+contract Recipe2 is KilnBase {
     uint256 public yen;   // [WAD]      Relative multiplier of the Univ3 TWAP price to insist on in the UniV3 trade
                           //            For example: 0.98 * WAD allows 2% worse price than the V3 TWAP
     uint256 public zen;   // [WAD]      Allowed Univ2 deposit price deviations from the Univ3 TWAP price. Must be <= WAD
                           //            For example: 0.97 * WAD allows 3% price deviation to either side.
     bytes   public path;  //            ABI-encoded UniV3 compatible path
+
+    address[] public quoters;
 
     address public immutable uniV2Router;
     address public immutable uniV3Router;
@@ -63,6 +68,7 @@ contract Recipe2 is KilnBase, TwapProduct {
 
     event File(bytes32 indexed what, bytes data);
 
+    // TODO: update documentation
     // @notice initialize a Uniswap V3 routing path contract
     // @dev In order to complete fire() has to trade on UniV3 and deposit to UniV2. With the initial constructor value of
     //      `yen` == WAD, fire will trade on Univ3 only when the amount of tokens received is equal or better than the Univ3
@@ -83,18 +89,20 @@ contract Recipe2 is KilnBase, TwapProduct {
         address _receiver
     )
         KilnBase(_sell, _buy)
-        TwapProduct(SwapRouterLike(_uniV3Router).factory())
     {
         uniV2Router = _uniV2Router;
         uniV3Router = _uniV3Router;
         receiver    = _receiver;
 
-        scope = 1 hours;
         yen = WAD;
         zen = WAD;
     }
 
     uint256 constant WAD = 10 ** 18;
+
+    function _max(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x >= y ? x : y;
+    }
 
     /**
         @dev Auth'ed function to update path value
@@ -107,6 +115,7 @@ contract Recipe2 is KilnBase, TwapProduct {
         emit File(what, data);
     }
 
+    // TODO: update documentation
     /**
         @dev Auth'ed function to update yen, scope, or base contract derived values
              Warning - setting `yen` or `zen` as a low value highly increases the susceptibility to oracle manipulation attacks
@@ -121,10 +130,6 @@ contract Recipe2 is KilnBase, TwapProduct {
         }  else if (what == "zen")  {
             require(data > 0, "Recipe2/zero-zen");
             zen = data;
-        }  else if (what == "scope") {
-            require(data > 0, "Recipe2/zero-scope");
-            require(data <= uint32(type(int32).max), "Recipe2/scope-overflow");
-            scope = data;
         } else {
             super.file(what, data);
             return;
@@ -132,11 +137,27 @@ contract Recipe2 is KilnBase, TwapProduct {
         emit File(what, data);
     }
 
+    // TODO: documentation
+    function addQuoter(address quoter) external auth {
+        quoters.push(quoter);
+    }
+
+    function removeQuoter(uint256 index) external auth {
+        quoters[index] = quoters[quoters.length - 1];
+        quoters.pop();
+    }
+
+    function quote(address sell, address buy, uint256 amount) public returns (uint256 outAMount) {
+        for(uint256 i; i < quoters.length; i++) {
+            outAMount = _max(outAMount, Quoter(quoters[i]).quote(sell, buy, amount));
+        }
+    }
+
     function _swap(uint256 inAmount) internal override returns (uint256 swapped) {
 
         uint256 _halfIn = inAmount / 2;
         bytes memory _path = path;
-        uint256 _quote = quote(_path, _halfIn, uint32(scope));
+        uint256 _quote = quote(sell, buy, _halfIn); // TODO: check if can avoid re-read of sell and buy
 
         GemLike(sell).approve(uniV3Router, _halfIn);
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
