@@ -16,8 +16,8 @@
 
 pragma solidity ^0.8.14;
 
-import {KilnBase, GemLike} from "./KilnBase.sol";
-import {QuoterTwapProduct} from "./quoters/QuoterTwapProduct.sol";
+import {KilnBase, GemLike} from "src/KilnBase.sol";
+import {IQuoter} from "src/quoters/IQuoter.sol";
 
 // https://github.com/Uniswap/v3-periphery/blob/b06959dd01f5999aa93e1dc530fe573c7bb295f6/contracts/SwapRouter.sol
 interface SwapRouterLike {
@@ -35,14 +35,10 @@ struct ExactInputParams {
     uint256 amountOutMinimum;
 }
 
-interface Quoter {
-    function quote(address sell, address buy, uint256 amount) external returns (uint256 outAMount);
-}
-
 contract KilnUniV3 is KilnBase {
-    uint256 public yen;   // [WAD]      Relative multiplier of the TWAP's price to insist on
-    bytes   public path;  //            ABI-encoded UniV3 compatible path
-
+    uint256   public yen;   // [WAD]      Relative multiplier of the reference price to insist on in the UniV3 trade.
+                            //            For example: 0.98 * WAD allows 2% worse price than the reference.
+    bytes     public path;  //            ABI-encoded UniV3 compatible path
     address[] public quoters;
 
     address public immutable uniV3Router;
@@ -50,11 +46,6 @@ contract KilnUniV3 is KilnBase {
 
     event File(bytes32 indexed what, bytes data);
 
-    // TODO: update documentation
-    // @notice initialize a Uniswap V3 routing path contract
-    // @dev TWAP-relative trading is enabled by default. With the initial values, fire will 
-    //      perform the trade only when the amount of tokens received is equal or better than
-    //      the 1 hour average price.
     // @param _sell          the contract address of the token that will be sold
     // @param _buy           the contract address of the token that will be purchased
     // @param _uniV3Router   the address of the current Uniswap V3 swap router
@@ -90,11 +81,9 @@ contract KilnUniV3 is KilnBase {
         emit File(what, data);
     }
 
-    // TODO: update documentation
     /**
-        @dev Auth'ed function to update yen, scope, or base contract derived values
+        @dev Auth'ed function to update yen or base contract derived values
              Warning - setting `yen` as 0 or another low value highly increases the susceptibility to oracle manipulation attacks
-             Warning - a low `scope` increases the susceptibility to oracle manipulation attacks
         @param what   Tag of value to update
         @param data   Value to update
     */
@@ -107,19 +96,27 @@ contract KilnUniV3 is KilnBase {
         emit File(what, data);
     }
 
-    // TODO: documentation
+    /**
+        @dev Auth'ed function to add a quoter contract
+        @param quoter   Address of the quoter contract
+    */
     function addQuoter(address quoter) external auth {
         quoters.push(quoter);
     }
 
+    /**
+        @dev Auth'ed function to remove a quoter contract
+        @param index   Index of the quoter contract to be removed
+    */
     function removeQuoter(uint256 index) external auth {
         quoters[index] = quoters[quoters.length - 1];
         quoters.pop();
     }
 
-    function quote(address sell, address buy, uint256 amount) public returns (uint256 outAMount) {
-        for(uint256 i; i < quoters.length; i++) {
-            outAMount = _max(outAMount, Quoter(quoters[i]).quote(sell, buy, amount));
+    // Note: although sell and buy tokens are passed there is no guarantee that the quoters will use/validate them
+    function _quote(uint256 amount) internal view returns (uint256 outAmount) {
+        for (uint256 i; i < quoters.length; i++) {
+            outAmount = _max(outAmount, IQuoter(quoters[i]).quote(sell, buy, amount));
         }
     }
 
@@ -129,7 +126,7 @@ contract KilnUniV3 is KilnBase {
         bytes   memory _path = path;
         uint256        _yen  = yen;
 
-        uint256 amountMin = (_yen != 0) ? quote(sell, buy, amount) * _yen / WAD : 0;
+        uint256 amountMin = (_yen != 0) ? _quote(amount) * _yen / WAD : 0;
 
         ExactInputParams memory params = ExactInputParams({
             path:             _path,

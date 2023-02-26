@@ -17,7 +17,8 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./KilnUniV3.sol";
+import "src/KilnUniV3.sol";
+import "src/quoters/QuoterTwapProduct.sol";
 
 interface TestGem {
     function totalSupply() external view returns (uint256);
@@ -117,26 +118,6 @@ contract KilnTest is Test {
         kiln.file("yen", 42);
         assertEq(kiln.yen(), 42);
     }
-
-    // TODO: move to quoter tests
-    /*
-    function testFileScope() public {
-        vm.expectEmit(true, true, false, false);
-        emit File(bytes32("scope"), 314);
-        kiln.file("scope", 314);
-        assertEq(kiln.scope(), 314);
-    }
-
-    function testFileZeroScope() public {
-        vm.expectRevert("KilnUniV3/zero-scope");
-        kiln.file("scope", 0);
-    }
-
-    function testFileScopeTooLarge() public {
-        vm.expectRevert("KilnUniV3/scope-overflow");
-        kiln.file("scope", uint32(type(int32).max) + 1);
-    }
-    */
 
     function testFileBytesUnrecognized() public {
         vm.expectRevert("KilnUniV3/file-unrecognized-param");

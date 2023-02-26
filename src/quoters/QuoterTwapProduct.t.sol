@@ -61,6 +61,9 @@ contract QuoterTwapProductTest is Test {
         }
     }
 
+    event File(bytes32 indexed what, bytes data);
+    event File(bytes32 indexed what, uint256 data);
+
     function setUp() public {
         quoter = Univ3Quoter(QUOTER);
         tpQuoter = new QuoterTwapProduct(UNIFACTORY);
@@ -72,6 +75,37 @@ contract QuoterTwapProductTest is Test {
 
         tpQuoter.file("path", path);
         tpQuoter.file("scope", scope);
+    }
+
+    function testFilePath() public {
+        path = abi.encodePacked(DAI, uint24(100), USDC);
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("path"), path);
+        tpQuoter.file("path", path);
+        assertEq0(tpQuoter.path(), path);
+    }
+
+    function testFileScope() public {
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("scope"), 314);
+        tpQuoter.file("scope", 314);
+        assertEq(tpQuoter.scope(), 314);
+    }
+
+    function testFileZeroScope() public {
+        vm.expectRevert("QuoterTwapProduct/zero-scope");
+        tpQuoter.file("scope", 0);
+    }
+
+    function testFileScopeTooLarge() public {
+        vm.expectRevert("QuoterTwapProduct/scope-overflow");
+        tpQuoter.file("scope", uint32(type(int32).max) + 1);
+    }
+
+    function testFilePathNonAuthed() public {
+        vm.startPrank(address(123));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.file("path", path);
     }
 
     function testSingleHopPath() public {

@@ -16,6 +16,7 @@
 
 pragma solidity ^0.8.14;
 
+import {IQuoter}     from "src/quoters/IQuoter.sol";
 import {FullMath}    from "src/uniV3/FullMath.sol";
 import {TickMath}    from "src/uniV3/TickMath.sol";
 import {PoolAddress} from "src/uniV3/PoolAddress.sol";
@@ -27,7 +28,7 @@ interface UniswapV3PoolLike {
     function observe(uint32[] calldata) external view returns (int56[] memory, uint160[] memory);
 }
 
-contract QuoterTwapProduct {
+contract QuoterTwapProduct is IQuoter {
     using Path for bytes;
 
     mapping (address => uint256) public wards;
@@ -58,16 +59,26 @@ contract QuoterTwapProduct {
     function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
     function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
 
-    // TODO: documentation
+    /**
+        @dev Auth'ed function to update scope
+             Warning - a low `scope` increases the susceptibility to oracle manipulation attacks
+        @param what   Tag of value to update
+        @param data   Value to update
+    */
     function file(bytes32 what, uint256 data) external auth {
         if (what == "scope") {
             require(data > 0, "QuoterTwapProduct/zero-scope");
-            require(data <= uint32(type(int32).max), "Recipe2/scope-overflow");
+            require(data <= uint32(type(int32).max), "QuoterTwapProduct/scope-overflow");
             scope = data;
         } else revert("QuoterTwapProduct/file-unrecognized-param");
         emit File(what, data);
     }
 
+    /**
+        @dev Auth'ed function to update path value
+        @param what   Tag of value to update
+        @param data   Value to update
+    */
     function file(bytes32 what, bytes calldata data) external auth {
         if (what == "path") path = data;
         else revert("QuoterTwapProduct/file-unrecognized-param");
