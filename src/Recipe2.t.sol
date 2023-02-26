@@ -18,7 +18,7 @@ pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
 import "src/Recipe2.sol";
-import "src/QuoterTwap.sol";
+import "src/quoters/QuoterTwapProduct.sol";
 
 import "src/uniV2/UniswapV2Library.sol";
 import "src/uniV2/IUniswapV2Pair.sol";
@@ -63,7 +63,7 @@ contract KilnTest is Test {
     using UniswapV2Library for *;
 
     Recipe2 kiln;
-    QuoterTwap qtwap;
+    QuoterTwapProduct qtwap;
     Univ3Quoter univ3Quoter;
     User user;
 
@@ -104,7 +104,7 @@ contract KilnTest is Test {
         kiln.file("path", path);
         halfLot = kiln.lot() / 2;
 
-        qtwap = new QuoterTwap(UNIV3FACTORY);
+        qtwap = new QuoterTwapProduct(UNIV3FACTORY);
         qtwap.file("path", path);
         kiln.addQuoter(address(qtwap));
 

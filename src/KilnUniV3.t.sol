@@ -24,7 +24,7 @@ interface TestGem {
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Quoter.sol#L106-L122
-interface Quoter {
+interface Univ3Quoter {
     function quoteExactInput(
         bytes calldata path,
         uint256 amountIn
@@ -35,7 +35,8 @@ contract User {}
 
 contract KilnTest is Test {
     KilnUniV3 kiln;
-    Quoter quoter;
+    QuoterTwapProduct qtwap;
+    Univ3Quoter quoter;
     User user;
 
     bytes path;
@@ -59,11 +60,15 @@ contract KilnTest is Test {
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
         kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
-        quoter = Quoter(QUOTER);
+        quoter = Univ3Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
         kiln.file("path", path);
+
+        qtwap = new QuoterTwapProduct(FACTORY);
+        qtwap.file("path", path);
+        kiln.addQuoter(address(qtwap));
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
     }
@@ -113,6 +118,8 @@ contract KilnTest is Test {
         assertEq(kiln.yen(), 42);
     }
 
+    // TODO: move to quoter tests
+    /*
     function testFileScope() public {
         vm.expectEmit(true, true, false, false);
         emit File(bytes32("scope"), 314);
@@ -129,6 +136,7 @@ contract KilnTest is Test {
         vm.expectRevert("KilnUniV3/scope-overflow");
         kiln.file("scope", uint32(type(int32).max) + 1);
     }
+    */
 
     function testFileBytesUnrecognized() public {
         vm.expectRevert("KilnUniV3/file-unrecognized-param");
@@ -268,8 +276,8 @@ contract KilnTest is Test {
         mintDai(address(kiln), 1_000_000 * WAD);
 
         kiln.file("hop", 0 hours); // for convenience allow firing right away
-        kiln.file("scope", 1 hours);
         kiln.file("yen", 120 * WAD / 100); // only swap if price rose by 20% vs twap
+        qtwap.file("scope", 1 hours);
 
         uint256 mkrBefore = GemLike(MKR).balanceOf(address(this));
 
@@ -304,8 +312,8 @@ contract KilnTest is Test {
         mintDai(address(kiln), 1_000_000 * WAD);
 
         kiln.file("hop", 0 hours); // for convenience allow firing right away
-        kiln.file("scope", 1 hours);
         kiln.file("yen", 80 * WAD / 100); // allow swap even if price fell by 20% vs twap
+        qtwap.file("scope", 1 hours);
 
         // make sure twap measures regular MKR out amount at the beginning of the hour (by making small swap)
         vm.roll(block.number + 1);
