@@ -16,7 +16,7 @@
 
 pragma solidity ^0.8.14;
 
-// Note: although sell and buy tokens are passes along there is no guarantee that the quoters will use/validate them
+// Note: although sell and buy tokens are passed there is no guarantee that quoters will use/validate them
 interface IQuoter {
     function quote(address sell, address buy, uint256 amount) external view returns (uint256 outAMount);
 }

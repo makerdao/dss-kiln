@@ -61,6 +61,8 @@ contract QuoterTwapProductTest is Test {
         }
     }
 
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
 
@@ -75,6 +77,34 @@ contract QuoterTwapProductTest is Test {
 
         tpQuoter.file("path", path);
         tpQuoter.file("scope", scope);
+    }
+
+    function testRely() public {
+        assertEq(tpQuoter.wards(address(123)), 0);
+        vm.expectEmit(true, false, false, false);
+        emit Rely(address(123));
+        tpQuoter.rely(address(123));
+        assertEq(tpQuoter.wards(address(123)), 1);
+    }
+
+    function testDeny() public {
+        assertEq(tpQuoter.wards(address(this)), 1);
+        vm.expectEmit(true, false, false, false);
+        emit Deny(address(this));
+        tpQuoter.deny(address(this));
+        assertEq(tpQuoter.wards(address(this)), 0);
+    }
+
+    function testRelyNonAuthed() public {
+        tpQuoter.deny(address(this));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.rely(address(123));
+    }
+
+    function testDenyNonAuthed() public {
+        tpQuoter.deny(address(this));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.deny(address(123));
     }
 
     function testFilePath() public {

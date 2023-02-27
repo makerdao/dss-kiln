@@ -58,6 +58,12 @@ interface UniswapV2PairLike {
 
 contract User {}
 
+contract HighAmountQuoter is IQuoter {
+    function quote(address, address, uint256 amountIn) external pure returns (uint256 amountOut) {
+        return amountIn; // MKR / DAI = 1, much higher out amount than usual
+    }
+}
+
 contract KilnTest is Test {
 
     using UniswapV2Library for *;
@@ -90,6 +96,8 @@ contract KilnTest is Test {
 
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
+    event AddQuoter(address indexed quoter);
+    event RemoveQuoter(uint256 indexed index, address indexed quoter);
 
     function setUp() public {
         user = new User();
@@ -260,27 +268,6 @@ contract KilnTest is Test {
         kiln.file("zen", 0);
     }
 
-    // TODO: move to new quoter
-    /*
-    function testFileScope() public {
-        vm.expectEmit(true, true, false, false);
-        emit File(bytes32("scope"), 314);
-        kiln.file("scope", 314);
-        assertEq(kiln.scope(), 314);
-    }
-
-    function testFileZeroScope() public {
-        vm.expectRevert("Recipe2/zero-scope");
-        kiln.file("scope", 0);
-    }
-
-
-    function testFileScopeTooLarge() public {
-        vm.expectRevert("Recipe2/scope-overflow");
-        kiln.file("scope", uint32(type(int32).max) + 1);
-    }
-    */
-
     function testFileBytesUnrecognized() public {
         vm.expectRevert("Recipe2/file-unrecognized-param");
         kiln.file("nonsense", bytes(""));
@@ -309,10 +296,100 @@ contract KilnTest is Test {
         kiln.file("zen", 7);
     }
 
-    function testFileScopeNonAuthed() public {
+    function testAddRemoveQuoter() public {
+        // clean up quoters list
+        assertEq(kiln.quoters(0), address(qtwap));
+        assertEq(kiln.quotersCount(), 1);
+        kiln.removeQuoter(0);
+        assertEq(kiln.quotersCount(), 0);
+
+        vm.expectEmit(true, true, false, false);
+        emit AddQuoter(address(1));
+        kiln.addQuoter(address(1));
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quotersCount(), 1);
+
+        vm.expectEmit(true, true, false, false);
+        emit AddQuoter(address(2));
+        kiln.addQuoter(address(2));
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quoters(1), address(2));
+        assertEq(kiln.quotersCount(), 2);
+
+        vm.expectEmit(true, true, false, false);
+        emit AddQuoter(address(3));
+        kiln.addQuoter(address(3));
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quoters(1), address(2));
+        assertEq(kiln.quoters(2), address(3));
+        assertEq(kiln.quotersCount(), 3);
+
+        vm.expectEmit(true, true, false, false);
+        emit AddQuoter(address(4));
+        kiln.addQuoter(address(4));
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quoters(1), address(2));
+        assertEq(kiln.quoters(2), address(3));
+        assertEq(kiln.quoters(3), address(4));
+        assertEq(kiln.quotersCount(), 4);
+
+        // Remove in the middle
+        vm.expectEmit(true, true, false, false);
+        emit RemoveQuoter(2, address(3));
+        kiln.removeQuoter(2);
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quoters(1), address(2));
+        assertEq(kiln.quoters(2), address(4));
+        assertEq(kiln.quotersCount(), 3);
+
+        // Remove last
+        vm.expectEmit(true, true, false, false);
+        emit RemoveQuoter(2, address(4));
+        kiln.removeQuoter(2);
+        assertEq(kiln.quoters(0), address(1));
+        assertEq(kiln.quoters(1), address(2));
+        assertEq(kiln.quotersCount(), 2);
+
+        // Remove first
+        vm.expectEmit(true, true, false, false);
+        emit RemoveQuoter(0, address(1));
+        kiln.removeQuoter(0);
+        assertEq(kiln.quoters(0), address(2));
+        assertEq(kiln.quotersCount(), 1);
+
+        // Remove single
+        vm.expectEmit(true, true, false, false);
+        emit RemoveQuoter(0, address(2));
+        kiln.removeQuoter(0);
+        assertEq(kiln.quotersCount(), 0);
+    }
+
+    function testAddQuoterNonAuthed() public {
         vm.startPrank(address(123));
         vm.expectRevert("KilnBase/not-authorized");
-        kiln.file("scope", 413);
+        kiln.addQuoter(address(7));
+    }
+
+    function testRemoveQuoterNonAuthed() public {
+        kiln.addQuoter(address(7));
+
+        vm.startPrank(address(123));
+        vm.expectRevert("KilnBase/not-authorized");
+        kiln.removeQuoter(0);
+    }
+
+    function testMultipleQuoters() public {
+        // Add a quoter with a higher amount than usual to act as reference
+        HighAmountQuoter q2 = new HighAmountQuoter();
+        kiln.addQuoter(address(q2));
+
+        // Permissive values
+        kiln.file("yen", 50 * WAD / 100);
+        kiln.file("zen", 50 * WAD / 100);
+
+        deal(DAI, address(kiln), 50_000 * WAD);
+        vm.expectRevert("Too little received");
+        kiln.fire();
     }
 
     /*

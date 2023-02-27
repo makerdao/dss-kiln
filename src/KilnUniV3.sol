@@ -45,6 +45,8 @@ contract KilnUniV3 is KilnBase {
     address public immutable receiver;
 
     event File(bytes32 indexed what, bytes data);
+    event AddQuoter(address indexed quoter);
+    event RemoveQuoter(uint256 indexed index, address indexed quoter);
 
     // @param _sell          the contract address of the token that will be sold
     // @param _buy           the contract address of the token that will be purchased
@@ -102,6 +104,7 @@ contract KilnUniV3 is KilnBase {
     */
     function addQuoter(address quoter) external auth {
         quoters.push(quoter);
+        emit AddQuoter(quoter);
     }
 
     /**
@@ -109,13 +112,23 @@ contract KilnUniV3 is KilnBase {
         @param index   Index of the quoter contract to be removed
     */
     function removeQuoter(uint256 index) external auth {
+        address remove = quoters[index];
         quoters[index] = quoters[quoters.length - 1];
         quoters.pop();
+        emit RemoveQuoter(index, remove);
     }
 
-    // Note: although sell and buy tokens are passed there is no guarantee that the quoters will use/validate them
+    /**
+        @dev Get the amount of quoters
+        @return count   Amount of quoters
+    */
+    function quotersCount() external view returns(uint256 count) {
+        return quoters.length;
+    }
+
     function _quote(uint256 amount) internal view returns (uint256 outAmount) {
         for (uint256 i; i < quoters.length; i++) {
+            // Note: although sell and buy tokens are passed there is no guarantee that quoters will use/validate them
             outAmount = _max(outAmount, IQuoter(quoters[i]).quote(sell, buy, amount));
         }
     }

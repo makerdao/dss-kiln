@@ -50,11 +50,11 @@ interface UniswapV2Router02Like {
 }
 
 contract Recipe2 is KilnBase {
-    uint256   public yen;   // [WAD]      Relative multiplier of the reference price to insist on in the UniV3 trade.
-                          //            For example: 0.98 * WAD allows 2% worse price than the reference.
-    uint256   public zen;   // [WAD]      Allowed Univ2 deposit price deviations from the reference price. Must be <= WAD
-                          //            For example: 0.97 * WAD allows 3% price deviation to either side.
-    bytes     public path;  //            ABI-encoded UniV3 compatible path
+    uint256   public yen;   // [WAD]    Relative multiplier of the reference price to insist on in the UniV3 trade.
+                            //          For example: 0.98 * WAD allows 2% worse price than the reference.
+    uint256   public zen;   // [WAD]    Allowed Univ2 deposit price deviations from the reference price. Must be <= WAD
+                            //          For example: 0.97 * WAD allows 3% price deviation to either side.
+    bytes     public path;  //          ABI-encoded UniV3 compatible path
     address[] public quoters;
 
     address public immutable uniV2Router;
@@ -62,6 +62,8 @@ contract Recipe2 is KilnBase {
     address public immutable receiver;
 
     event File(bytes32 indexed what, bytes data);
+    event AddQuoter(address indexed quoter);
+    event RemoveQuoter(uint256 indexed index, address indexed quoter);
 
     // @param _sell          the contract address of the token that will be sold
     // @param _buy           the contract address of the token that will be purchased
@@ -128,6 +130,7 @@ contract Recipe2 is KilnBase {
     */
     function addQuoter(address quoter) external auth {
         quoters.push(quoter);
+        emit AddQuoter(quoter);
     }
 
     /**
@@ -135,20 +138,29 @@ contract Recipe2 is KilnBase {
         @param index   Index of the quoter contract to be removed
     */
     function removeQuoter(uint256 index) external auth {
+        address remove = quoters[index];
         quoters[index] = quoters[quoters.length - 1];
         quoters.pop();
+        emit RemoveQuoter(index, remove);
     }
 
-    // Note: although sell and buy tokens are passed there is no guarantee that the quoters will use/validate them
+    /**
+        @dev Get the amount of quoters
+        @return count   Amount of quoters
+    */
+    function quotersCount() external view returns(uint256 count) {
+        return quoters.length;
+    }
+
     function _quote(uint256 amount) internal view returns (uint256 outAmount) {
         for (uint256 i; i < quoters.length; i++) {
+            // Note: although sell and buy tokens are passed there is no guarantee that quoters will use/validate them
             outAmount = _max(outAmount, IQuoter(quoters[i]).quote(sell, buy, amount));
         }
     }
 
-    function _swap(uint256 inAmount) internal override returns (uint256 swapped) {
-
-        uint256 _halfIn = inAmount / 2;
+    function _swap(uint256 amount) internal override returns (uint256 swapped) {
+        uint256 _halfIn = amount / 2;
         bytes memory _path = path;
         uint256 quote = _quote(_halfIn);
 
