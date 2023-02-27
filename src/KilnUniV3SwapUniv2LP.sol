@@ -49,7 +49,7 @@ interface UniswapV2Router02Like {
     ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
-contract Recipe2 is KilnBase {
+contract KilnUniV3SwapUniv2LP is KilnBase {
     uint256   public yen;   // [WAD]    Relative multiplier of the reference price to insist on in the UniV3 trade.
                             //          For example: 0.98 * WAD allows 2% worse price than the reference.
     uint256   public zen;   // [WAD]    Allowed Univ2 deposit price deviations from the reference price. Must be <= WAD
@@ -100,7 +100,7 @@ contract Recipe2 is KilnBase {
     */
     function file(bytes32 what, bytes calldata data) external auth {
         if (what == "path") path = data;
-        else revert("Recipe2/file-unrecognized-param");
+        else revert("KilnUniV3SwapUniv2LP/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -112,10 +112,10 @@ contract Recipe2 is KilnBase {
     */
     function file(bytes32 what, uint256 data) public override auth {
         if (what == "yen") {
-            require(data > 0, "Recipe2/zero-yen");
+            require(data > 0, "KilnUniV3SwapUniv2LP/zero-yen");
             yen = data;
         }  else if (what == "zen")  {
-            require(data > 0, "Recipe2/zero-zen");
+            require(data > 0, "KilnUniV3SwapUniv2LP/zero-zen");
             zen = data;
         } else {
             super.file(what, data);

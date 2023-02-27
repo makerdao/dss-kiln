@@ -17,7 +17,7 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "src/Recipe2.sol";
+import "src/KilnUniV3SwapUniv2LP.sol";
 import "src/quoters/QuoterTwapProduct.sol";
 
 import "src/uniV2/UniswapV2Library.sol";
@@ -68,7 +68,7 @@ contract KilnTest is Test {
 
     using UniswapV2Library for *;
 
-    Recipe2 kiln;
+    KilnUniV3SwapUniv2LP kiln;
     QuoterTwapProduct qtwap;
     Univ3Quoter univ3Quoter;
     User user;
@@ -103,7 +103,7 @@ contract KilnTest is Test {
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
-        kiln = new Recipe2(DAI, MKR, UNIV2ROUTER, UNIV3ROUTER, address(user));
+        kiln = new KilnUniV3SwapUniv2LP(DAI, MKR, UNIV2ROUTER, UNIV3ROUTER, address(user));
         univ3Quoter = Univ3Quoter(UNIV3QUOTER);
         pairToken = UniswapV2Library.pairFor(ExtendedUni2Router(UNIV2ROUTER).factory(), DAI, MKR);
 
@@ -259,17 +259,17 @@ contract KilnTest is Test {
     }
 
     function testFileYenZero() public {
-        vm.expectRevert("Recipe2/zero-yen");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/zero-yen");
         kiln.file("yen", 0);
     }
 
     function testFileZenZero() public {
-        vm.expectRevert("Recipe2/zero-zen");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/zero-zen");
         kiln.file("zen", 0);
     }
 
     function testFileBytesUnrecognized() public {
-        vm.expectRevert("Recipe2/file-unrecognized-param");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/file-unrecognized-param");
         kiln.file("nonsense", bytes(""));
     }
 
