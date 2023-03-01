@@ -27,6 +27,7 @@ interface TestGem {
 interface UniswapV2RouterExtendedLike is UniswapRouterV2Like {
     function quote(uint256, uint256 ,uint256) external pure returns (uint256);
     function getAmountOut(uint256, uint256, uint256) external pure returns (uint256);
+    function removeLiquidity(address, address, uint256, uint256, uint256, address, uint256) external returns (uint amountA, uint amountB);
 }
 
 interface UniswapV2FactoryLike {
@@ -79,6 +80,28 @@ contract KilnTest is Test {
         return address(_pip);
     }
 
+    //rounds to zero if x*y < WAD / 2
+    function _wdiv(uint x, uint y) internal pure returns (uint z) {
+        z = (x * WAD + y / 2) / y;
+    }
+
+    // not provided in DSTest
+    function assertEqApprox(uint256 _a, uint256 _b, uint256 _tolerance) internal {
+        uint256 a = _a;
+        uint256 b = _b;
+        if (a < b) {
+            uint256 tmp = a;
+            a = b;
+            b = tmp;
+        }
+        if (a - b > _tolerance) {
+            emit log_bytes32("Error: Wrong `uint' value");
+            emit log_named_uint("  Expected", _b);
+            emit log_named_uint("    Actual", _a);
+            fail();
+        }
+    }
+
     function topUpLiquidity(uint256 initialDaiLiquidity) internal {
         uint256 daiAmt = initialDaiLiquidity > 0 ? initialDaiLiquidity : 5_000_000 * WAD;
         uint256 mkrAmt = 5000 * WAD;
@@ -89,7 +112,11 @@ contract KilnTest is Test {
         (uint reserve0, uint reserve1,) = UniswapV2PairLike(kiln.pairToken()).getReserves();
         (reserveA, reserveB) = DAI == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
 
-        mkrAmt = daiAmt / (reserveA / reserveB) - 10 * WAD;
+        if (reserveA > reserveB) {
+            mkrAmt = daiAmt / (reserveA / reserveB) - 10 * WAD;
+        } else {
+            daiAmt = mkrAmt / (reserveB / reserveA);
+        }
 
         // assume initial funder in another address, attacker will be address(this)
         vm.startPrank(address(123));
@@ -113,14 +140,62 @@ contract KilnTest is Test {
         vm.stopPrank();
     }
 
-    function mintDai(address usr, uint256 amt) internal {
+    function mintDai(address usr, uint256 amt) internal returns (uint256) {
         deal(DAI, usr, amt);
         assertEq(GemLike(DAI).balanceOf(address(usr)), amt);
+        return amt;
     }
 
-    function mintMKR(address usr, uint256 amt) internal {
+    function mintMKR(address usr, uint256 amt) internal returns (uint256) {
         deal(MKR, usr, amt);
         assertEq(GemLike(MKR).balanceOf(address(usr)), amt);
+        return amt;
+    }
+
+    function estimateLPTokenAmount(bool buyMkr, uint256 amount) internal returns (uint256 lpAmt) {
+
+        mintDai(address(this), amount);
+        uint256 half = amount / 2;
+        address sell = (buyMkr) ? DAI : MKR;
+        address buy = (buyMkr) ? MKR : DAI;
+
+        address[] memory _path = new address[](2);
+        _path[0] = sell;
+        _path[1] = buy;
+
+        GemLike(sell).approve(ROUTER, amount);
+
+        uint256 swapped = trade(true, half);
+
+        GemLike(buy).approve(ROUTER, swapped);
+
+        GemLike(buy).approve(ROUTER, type(uint256).max);
+        GemLike(sell).approve(ROUTER, type(uint256).max);
+
+        (uint256 addAmountA, uint256 addAmountB, uint256 outLpAmt) = UniswapRouterV2Like(ROUTER).addLiquidity(
+            sell,              // tokenA
+            buy,               // tokenB
+            half,              // amountADesired
+            swapped,           // amountBDesired
+            1,                 // amountAMin
+            1,                 // amountBMin
+            address(this),     // to
+            block.timestamp);  // deadline
+
+        // Reset pool
+        GemLike(UniswapRouterV2Like(ROUTER).factory().pairFor(sell, buy)).approve(ROUTER, outLpAmt);
+        (uint outAmountA, uint outAmountB) = UniswapRouterV2Like(ROUTER).removeLiquidity(sell, buy, outLpAmt, 0, 0, address(this), block.timestamp);
+        trade(false, outAmountB);
+
+        {
+        // There is a small difference in the amount added vs. the amount received due to token price rounding in the router
+        assertEqApprox(outAmountA, addAmountA, 1e10);
+        assertEqApprox(outAmountB, addAmountB, 1e10);
+        assertLe(outAmountA, addAmountA, "Amount A received gt amount sent");
+        assertLe(outAmountB, addAmountB, "Amount B received gt amount sent");
+        }
+
+        lpAmt = outLpAmt;
     }
 
     function getLiquidityStatus(bool print) public view returns (uint256 reserveDai, uint256 reserveMkr, uint256 price) {
@@ -128,7 +203,10 @@ contract KilnTest is Test {
         (uint reserve0, uint reserve1,) = UniswapV2PairLike(kiln.pairToken()).getReserves();
         reserveDai = DAI == token0 ? reserve0 : reserve1;
         reserveMkr = DAI == token0 ? reserve1 : reserve0;
+
         price = reserveDai / reserveMkr;
+
+        price = (price == 0) ? 1 : price;  // don't return 0 price
 
         if (print) console.log("liquidity status %s dai, %d mkr, price %s", reserveDai / WAD, reserveMkr / WAD, price);
     }
@@ -154,7 +232,7 @@ contract KilnTest is Test {
     }
 
     // sum up all kiln funds - in the contract and in the reaceiver
-    function getKilnTotal(address receiver) public returns (uint256 kilnTotal) {
+    function getKilnTotal(address receiver) public view returns (uint256 kilnTotal) {
         uint256 kilnDai = GemLike(DAI).balanceOf(address(kiln));
         uint256 kilnMKRr = GemLike(MKR).balanceOf(address(kiln));
 
@@ -182,6 +260,8 @@ contract KilnTest is Test {
         uint256 kilnInitialTotal = getKilnTotal(address(user));
         getLiquidityStatus(true);
 
+        uint256 preAttackLPTokens = estimateLPTokenAmount(true, 20000 * WAD);
+
         // attacker initial funding
         (,,uint256 fairPrice) = getLiquidityStatus(false);
         uint256 depositMKR = depositDai / fairPrice;
@@ -202,6 +282,7 @@ contract KilnTest is Test {
 
         ////////////////// end attacker code ///////////////////////
 
+        uint256 duringAttackLPTokens = estimateLPTokenAmount(true, 20000 * WAD);
         kiln.fire();
 
         //////////////// attacker code ///////////////////////
@@ -224,9 +305,18 @@ contract KilnTest is Test {
         console.log("kiln loss:");
         console.logInt((int256(kilnInitialTotal) - int256(kilnEndTotal)) / int256(WAD));
 
+        uint256 postAttackLPTokens = estimateLPTokenAmount(true, 20000 * WAD);
+
         //////////////// end attacker code ///////////////////////
 
         assertGt(GemLike(kiln.pairToken()).balanceOf(address(user)), 0);
+
+        console.log("lp tokens from fire before attack %s", preAttackLPTokens);
+        console.log("lp tokens from fire during attack %s", duringAttackLPTokens);
+        // Note: Amount of tokens after attack will be lower than prior to attack
+        //       due to increased pool liquidity from trade fees
+        console.log("lp tokens from fire after  attack %s", postAttackLPTokens);
+
     }
 
     // this was the initial setting of this test (5M liquidity each side)
@@ -310,7 +400,7 @@ contract KilnTest is Test {
     // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
     // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
     function testFireV2Single20KInitialLiquidityMax() public {
-        kiln.file("max", 600 * WAD);
+        kiln.file("max", 800 * WAD);
 
         uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
@@ -327,6 +417,36 @@ contract KilnTest is Test {
         uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
         uint256 skewDai             = 500_000_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this was the initial setting of this test (5M liquidity each side)
+    // block = 16592592, lot 20k
+    function testFireV2Single5MInitialLiquidityInverse() public {
+
+        // Offset pool in our favor
+        mintMKR(address(this), 20000 * WAD);
+        trade(false, 20000 * WAD);
+
+        uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 200_000 * WAD;
+
+        fireV2Single(initialDaiLiquidity, depositDai, skewDai);
+    }
+
+    // this was the initial setting of this test (5M liquidity each side)
+    // block = 16592592, lot 20k
+    function testFireV2Single5MInitialLiquidityInverseNoSkew() public {
+
+        // Offset pool in our favor
+        mintMKR(address(this), 2000 * WAD);
+        trade(false, 2000 * WAD);
+
+        uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
+        uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
+        uint256 skewDai             = 1 * WAD;
 
         fireV2Single(initialDaiLiquidity, depositDai, skewDai);
     }

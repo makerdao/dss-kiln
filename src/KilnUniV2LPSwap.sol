@@ -94,7 +94,7 @@ contract KilnUniV2LPSwap is KilnBase {
         emit File(what, data);
     }
 
-    function file(bytes32 what, address data) public auth {
+    function file(bytes32 what, address data) external auth {
         if (what == "pip") {
             pip = data;
         } else {
@@ -136,7 +136,7 @@ contract KilnUniV2LPSwap is KilnBase {
             _halfLot,          // amountADesired
             _swapped,          // amountBDesired
             1,                 // amountAMin
-            _swapped,          // amountBMin // irrelevant - can be very large
+            _swapped,          // amountBMin
             receiver,          // to
             block.timestamp);  // deadline
         _swapped = _liquidity;
