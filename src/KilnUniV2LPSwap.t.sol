@@ -332,7 +332,7 @@ contract KilnTest is Test {
     // this was the initial setting of this test (5M liquidity each side)
     // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
     function testFireV2Single5MInitialLiquidityMax() public {
-        kiln.file("max", 800 * WAD);
+        kiln.file("max", 900 * WAD);
 
         uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
@@ -344,7 +344,7 @@ contract KilnTest is Test {
     // this was the initial setting of this test (5M liquidity each side)
     // block = 16592592, lot 20k, attacker profit 2, kiln loss 105
     function testFireV2Single5MInitialLiquidityMaxPip() public {
-        kiln.file("pip", setPip(800 * WAD));
+        kiln.file("pip", setPip(900 * WAD));
 
         uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
@@ -366,7 +366,7 @@ contract KilnTest is Test {
     // this test shows that with a bit less initial liquidity attacker can be profitable and kiln can get rekt
     // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
     function testFireV2Single3MInitialLiquidityMax() public {
-        kiln.file("max", 800 * WAD);
+        kiln.file("max", 900 * WAD);
 
         uint256 initialDaiLiquidity = 3_000_000 * WAD;
         uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
@@ -378,7 +378,7 @@ contract KilnTest is Test {
     // this test shows that with a bit less initial liquidity attacker can be profitable and kiln can get rekt
     // block = 16592592, lot 20k, attacker profit 1887, kiln loss 19654
     function testFireV2Single3MInitialLiquidityMaxPip() public {
-        kiln.file("pip", setPip(800 * WAD));
+        kiln.file("pip", setPip(900 * WAD));
 
         uint256 initialDaiLiquidity = 3_000_000 * WAD;
         uint256 depositDai = 5_000_000 * WAD; // this is needed also in MKR (reasonable)
@@ -400,7 +400,7 @@ contract KilnTest is Test {
     // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
     // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
     function testFireV2Single20KInitialLiquidityMax() public {
-        kiln.file("max", 800 * WAD);
+        kiln.file("max", 900 * WAD);
 
         uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
@@ -412,7 +412,7 @@ contract KilnTest is Test {
     // this is a sanity check showing that when initial liquidity is almost 0, almost all kiln lost is attacker profit
     // block = 16592592, lot 20k, attacker profit 19693, kiln loss 19771
     function testFireV2Single20KInitialLiquidityMaxPip() public {
-        kiln.file("pip", setPip(800 * WAD));
+        kiln.file("pip", setPip(900 * WAD));
 
         uint256 initialDaiLiquidity = 20_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 5_000_000 * WAD; // this is needed also in MKR
