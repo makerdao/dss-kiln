@@ -112,14 +112,14 @@ contract KilnUniV2LPSwap is KilnBase {
             _max = (has) ? uint256(val) : _max;
         }
 
-        uint256 _amountOutMin = _wmul(_halfLot, _max) / WAD;
+        uint256 _amountOutMin = _wmul(_halfLot, _max);
 
         GemLike(sell).approve(uniV2Router, _amount);
         // Step 1: Swap half of sell token for buy token.
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _halfLot,          // amountIn
             _amountOutMin,     // amountOutMin
-            _path(),             // path
+            _path(),           // path
             address(this),     // to
             block.timestamp);  // deadline
         _swapped = _amounts[_amounts.length - 1];
