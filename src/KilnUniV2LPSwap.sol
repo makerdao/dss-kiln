@@ -56,10 +56,6 @@ interface UniswapRouterV2Like {
     ) external returns (uint amountA, uint amountB);
 }
 
-interface UniswapPairV2Like {
-    function getReserves() external view returns (uint112, uint112, uint32);
-}
-
 interface PipLike {
     function peek() external returns (bytes32, bool);
 }
@@ -74,14 +70,12 @@ contract KilnUniV2LPSwap is KilnBase {
 
     uint256 internal constant WAD = 10 ** 18;
 
-    uint256 public max;  // [WAD] Maximum acceptable buy price in sell.
-    uint256 public nip;  // [WAD] Maximum percentage of pool sell reserves to utilize.
+    uint256 public max;  // [WAD] Maximum acceptable buy price in sell (WAD)
     address public pip;  // (Optional) pricing module
 
     constructor(address _sell, address _buy, address _uniV2Router, address _receiver) KilnBase(_sell, _buy) {
         receiver = _receiver;
         uniV2Router = _uniV2Router;
-        nip = WAD / 100;  // Default to 1% of available reserve
         pairToken = UniswapRouterV2Like(_uniV2Router).factory().pairFor(_sell, _buy);
     }
 
@@ -90,16 +84,9 @@ contract KilnUniV2LPSwap is KilnBase {
         z = (x * y) + (WAD / 2) / WAD;
     }
 
-    function _max(uint x, uint y) internal pure returns (uint z) {
-        return x >= y ? x : y;
-    }
-
     function file(bytes32 what, uint256 data) public override auth {
         if (what == "max") {
             max = data;
-        } else if (what == "nip") {
-            require(data <= WAD, "KilnUniV2LPSwap/nip-too-high");
-            nip = data;
         } else {
             super.file(what, data);
             return;
@@ -120,14 +107,6 @@ contract KilnUniV2LPSwap is KilnBase {
         uint256 _halfLot = _amount / 2;
         uint256 _max = max;
 
-        {
-        (uint112 reserve0, uint112 reserve1,) = UniswapPairV2Like(pairToken).getReserves();
-        (address tokenA,) = sell.sortTokens(buy);
-        uint256 sellReserve = tokenA == sell ? uint256(reserve0) : uint256(reserve1);
-        _halfLot = _min(_halfLot, _wmul(sellReserve, nip) / WAD);
-        }
-
-        // TODO: can this be immutable?
         address[] memory _path = new address[](2);
         _path[0] = sell;
         _path[1] = buy;
