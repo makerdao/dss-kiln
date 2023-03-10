@@ -81,7 +81,7 @@ contract KilnUniV2LPSwap is KilnBase {
 
     //rounds to zero if x*y < WAD / 2
     function _wmul(uint x, uint y) internal pure returns (uint z) {
-        z = (x * y) + (WAD / 2) / WAD;
+        z = ((x * y) + (WAD / 2)) / WAD;
     }
 
     function file(bytes32 what, uint256 data) public override auth {
@@ -107,10 +107,6 @@ contract KilnUniV2LPSwap is KilnBase {
         uint256 _halfLot = _amount / 2;
         uint256 _max = max;
 
-        address[] memory _path = new address[](2);
-        _path[0] = sell;
-        _path[1] = buy;
-
         if (pip != address(0)) {
             (bytes32 val, bool has) = PipLike(pip).peek();
             _max = (has) ? uint256(val) : _max;
@@ -123,7 +119,7 @@ contract KilnUniV2LPSwap is KilnBase {
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _halfLot,          // amountIn
             _amountOutMin,     // amountOutMin
-            _path,             // path
+            _path(),             // path
             address(this),     // to
             block.timestamp);  // deadline
         _swapped = _amounts[_amounts.length - 1];
@@ -145,6 +141,12 @@ contract KilnUniV2LPSwap is KilnBase {
         // TODO add functionality for adding liquidity when buy token is sent to contract
         require(GemLike(buy).balanceOf(address(this)) == 0);
         require(GemLike(pairToken).balanceOf(receiver) >= _swapped, "KilnUniV2LPSwap/swapped-balance-not-available");
+    }
+
+    function _path() internal view returns (address[] memory path) {
+        path = new address[](2);
+        path[0] = sell;
+        path[1] = buy;
     }
 
     function _drop(uint256 _amount) internal override {}
