@@ -441,8 +441,8 @@ contract KilnTest is Test {
     function testFireV2Single5MInitialLiquidityInverseNoSkew() public {
 
         // Offset pool in our favor
-        mintMKR(address(this), 20000 * WAD);
-        trade(false, 20000 * WAD);
+        mintMKR(address(this), 2000 * WAD);
+        trade(false, 2000 * WAD);
 
         uint256 initialDaiLiquidity = 5_000_000 * WAD; // as originaly set in the test
         uint256 depositDai          = 60_000_000 * WAD; // this is needed also in MKR
