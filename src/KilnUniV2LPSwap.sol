@@ -66,8 +66,6 @@ interface PipLike {
 
 contract KilnUniV2LPSwap is KilnBase {
 
-    event Debug(uint256, uint256);
-
     using UniswapV2Library for *;
 
     address public immutable uniV2Router;
@@ -90,11 +88,6 @@ contract KilnUniV2LPSwap is KilnBase {
     //rounds to zero if x*y < WAD / 2
     function _wmul(uint x, uint y) internal pure returns (uint z) {
         z = (x * y) + (WAD / 2) / WAD;
-    }
-
-    //rounds to zero if x*y < WAD / 2
-    function _wdiv(uint x, uint y) internal pure returns (uint z) {
-        z = (x * WAD) + (y / 2) / y;
     }
 
     function _max(uint x, uint y) internal pure returns (uint z) {
@@ -125,39 +118,36 @@ contract KilnUniV2LPSwap is KilnBase {
     function _swap(uint256 _amount) internal override returns (uint256 _swapped) {
 
         uint256 _halfLot = _amount / 2;
-        uint256 _maxPer = max;
+        uint256 _max = max;
 
-        emit Debug(_halfLot, 1);
-        emit Debug(_maxPer, 2);
+        {
+        (uint112 reserve0, uint112 reserve1,) = UniswapPairV2Like(pairToken).getReserves();
+        (address tokenA,) = sell.sortTokens(buy);
+        uint256 sellReserve = tokenA == sell ? uint256(reserve0) : uint256(reserve1);
+        _halfLot = _min(_halfLot, _wmul(sellReserve, nip) / WAD);
+        }
 
-        _halfLot = _min(_halfLot, sellReserves() * nip / WAD);
-
-        emit Debug(_halfLot, 3);
+        // TODO: can this be immutable?
+        address[] memory _path = new address[](2);
+        _path[0] = sell;
+        _path[1] = buy;
 
         if (pip != address(0)) {
             (bytes32 val, bool has) = PipLike(pip).peek();
-            _maxPer = (has) ? uint256(val) : _maxPer;
+            _max = (has) ? uint256(val) : _max;
         }
 
-        emit Debug(_maxPer, 5);
-
-        uint256 _amountOutMin = _wmul(_halfLot, _maxPer) / WAD;
-
-        emit Debug(sellReserves(), 6);
-        emit Debug(sellReserves() * nip / WAD, 7);
-        emit Debug(_amountOutMin, 8);
+        uint256 _amountOutMin = _wmul(_halfLot, _max) / WAD;
 
         GemLike(sell).approve(uniV2Router, _amount);
         // Step 1: Swap half of sell token for buy token.
         uint256[] memory _amounts = UniswapRouterV2Like(uniV2Router).swapExactTokensForTokens(
             _halfLot,          // amountIn
             _amountOutMin,     // amountOutMin
-            path(),            // path
+            _path,             // path
             address(this),     // to
             block.timestamp);  // deadline
         _swapped = _amounts[_amounts.length - 1];
-
-        emit Debug(_swapped, 9);
 
         // Step 2: Add liquidity
         GemLike(buy).approve(uniV2Router, _swapped);
@@ -176,18 +166,6 @@ contract KilnUniV2LPSwap is KilnBase {
         // TODO add functionality for adding liquidity when buy token is sent to contract
         require(GemLike(buy).balanceOf(address(this)) == 0);
         require(GemLike(pairToken).balanceOf(receiver) >= _swapped, "KilnUniV2LPSwap/swapped-balance-not-available");
-    }
-
-    function path() internal view returns (address[] memory _path) {
-        _path = new address[](2);
-        _path[0] = sell;
-        _path[1] = buy;
-    }
-
-    function sellReserves() internal view returns (uint256) {
-        (uint112 reserve0, uint112 reserve1,) = UniswapPairV2Like(pairToken).getReserves();
-        (address tokenA,) = sell.sortTokens(buy);
-        return (tokenA == sell) ? uint256(reserve0) : uint256(reserve1);
     }
 
     function _drop(uint256 _amount) internal override {}
