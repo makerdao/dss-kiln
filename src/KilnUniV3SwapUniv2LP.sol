@@ -137,7 +137,7 @@ contract KilnUniV3SwapUniv2LP is KilnBase {
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
         uint256 _halfIn = amount / 2;
         bytes memory _path = path;
-        uint256 quote = IQuoter(quoter).quote(sell, buy, amount);
+        uint256 quote = IQuoter(quoter).quote(sell, buy, _halfIn);
 
         GemLike(sell).approve(uniV3Router, _halfIn);
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({
