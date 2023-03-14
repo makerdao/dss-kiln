@@ -55,15 +55,14 @@ contract KilnUniV3SwapUniv2LP is KilnBase {
     uint256   public zen;   // [WAD]    Allowed Univ2 deposit price deviations from the reference price. Must be <= WAD
                             //          For example: 0.97 * WAD allows 3% price deviation to either side.
     bytes     public path;  //          ABI-encoded UniV3 compatible path
-    address[] public quoters;
+    address   public quoter;
 
     address public immutable uniV2Router;
     address public immutable uniV3Router;
     address public immutable receiver;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
-    event AddQuoter(address indexed quoter);
-    event RemoveQuoter(uint256 indexed index, address indexed quoter);
 
     // @param _sell          the contract address of the token that will be sold
     // @param _buy           the contract address of the token that will be purchased
@@ -91,6 +90,17 @@ contract KilnUniV3SwapUniv2LP is KilnBase {
 
     function _max(uint256 x, uint256 y) internal pure returns (uint256 z) {
         z = x >= y ? x : y;
+    }
+
+    /**
+        @dev Auth'ed function to update quoter address value
+        @param what   Tag of value to update
+        @param data   Value to update
+    */
+    function file(bytes32 what, address data) public virtual auth {
+        if (what == "quoter") quoter = data;
+        else revert("KilnUniV3/file-unrecognized-param");
+        emit File(what, data);
     }
 
     /**
@@ -124,45 +134,10 @@ contract KilnUniV3SwapUniv2LP is KilnBase {
         emit File(what, data);
     }
 
-    /**
-        @dev Auth'ed function to add a quoter contract
-        @param quoter   Address of the quoter contract
-    */
-    function addQuoter(address quoter) external auth {
-        quoters.push(quoter);
-        emit AddQuoter(quoter);
-    }
-
-    /**
-        @dev Auth'ed function to remove a quoter contract
-        @param index   Index of the quoter contract to be removed
-    */
-    function removeQuoter(uint256 index) external auth {
-        address remove = quoters[index];
-        quoters[index] = quoters[quoters.length - 1];
-        quoters.pop();
-        emit RemoveQuoter(index, remove);
-    }
-
-    /**
-        @dev Get the amount of quoters
-        @return count   Amount of quoters
-    */
-    function quotersCount() external view returns(uint256 count) {
-        return quoters.length;
-    }
-
-    function _quote(uint256 amount) internal view returns (uint256 outAmount) {
-        for (uint256 i; i < quoters.length; i++) {
-            // Note: although sell and buy tokens are passed there is no guarantee that quoters will use/validate them
-            outAmount = _max(outAmount, IQuoter(quoters[i]).quote(sell, buy, amount));
-        }
-    }
-
     function _swap(uint256 amount) internal override returns (uint256 swapped) {
         uint256 _halfIn = amount / 2;
         bytes memory _path = path;
-        uint256 quote = _quote(_halfIn);
+        uint256 quote = IQuoter(quoter).quote(sell, buy, amount);
 
         GemLike(sell).approve(uniV3Router, _halfIn);
         SwapRouterLike.ExactInputParams memory params = SwapRouterLike.ExactInputParams({

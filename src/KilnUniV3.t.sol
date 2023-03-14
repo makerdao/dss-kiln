@@ -18,6 +18,7 @@ pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
 import "src/KilnUniV3.sol";
+import "src/quoters/MaxAggregator.sol";
 import "src/quoters/QuoterTwapProduct.sol";
 
 interface TestGem {
@@ -42,6 +43,7 @@ contract HighAmountQuoter is IQuoter {
 
 contract KilnTest is Test {
     KilnUniV3 kiln;
+    MaxAggregator aggregator;
     QuoterTwapProduct qtwap;
     Univ3Quoter quoter;
     User user;
@@ -59,6 +61,7 @@ contract KilnTest is Test {
     address constant QUOTER   = 0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6;
     address constant FACTORY  = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
     event AddQuoter(address indexed quoter);
@@ -69,6 +72,7 @@ contract KilnTest is Test {
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
         kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
+        aggregator = new MaxAggregator();
         quoter = Univ3Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
@@ -77,7 +81,8 @@ contract KilnTest is Test {
 
         qtwap = new QuoterTwapProduct(FACTORY);
         qtwap.file("path", path);
-        kiln.addQuoter(address(qtwap));
+        aggregator.addQuoter(address(qtwap));
+        kiln.file("quoter", address(aggregator));
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
     }
@@ -112,6 +117,13 @@ contract KilnTest is Test {
         SwapRouterLike(kiln.uniV3Router()).exactInput(params);
     }
 
+    function testFileQuoter() public {
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("quoter"), address(314));
+        kiln.file("quoter", address(314));
+        assertEq(kiln.quoter(), address(314));
+    }
+
     function testFilePath() public {
         path = abi.encodePacked(DAI, uint24(100), USDC);
         vm.expectEmit(true, true, false, false);
@@ -127,6 +139,11 @@ contract KilnTest is Test {
         assertEq(kiln.yen(), 42);
     }
 
+    function testFileAddressUnrecognized() public {
+        vm.expectRevert("KilnUniV3/file-unrecognized-param");
+        kiln.file("nonsense", address(314));
+    }
+
     function testFileBytesUnrecognized() public {
         vm.expectRevert("KilnUniV3/file-unrecognized-param");
         kiln.file("nonsense", bytes(""));
@@ -135,6 +152,12 @@ contract KilnTest is Test {
     function testFileUintUnrecognized() public {
         vm.expectRevert("KilnBase/file-unrecognized-param");
         kiln.file("nonsense", 23);
+    }
+
+    function testFileQuoterNonAuthed() public {
+        vm.startPrank(address(123));
+        vm.expectRevert("KilnBase/not-authorized");
+        kiln.file("quoter", address(314));
     }
 
     function testFilePathNonAuthed() public {
@@ -149,92 +172,10 @@ contract KilnTest is Test {
         kiln.file("yen", 42);
     }
 
-    function testAddRemoveQuoter() public {
-        // clean up quoters list
-        assertEq(kiln.quoters(0), address(qtwap));
-        assertEq(kiln.quotersCount(), 1);
-        kiln.removeQuoter(0);
-        assertEq(kiln.quotersCount(), 0);
-
-        vm.expectEmit(true, true, false, false);
-        emit AddQuoter(address(1));
-        kiln.addQuoter(address(1));
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quotersCount(), 1);
-
-        vm.expectEmit(true, true, false, false);
-        emit AddQuoter(address(2));
-        kiln.addQuoter(address(2));
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quoters(1), address(2));
-        assertEq(kiln.quotersCount(), 2);
-
-        vm.expectEmit(true, true, false, false);
-        emit AddQuoter(address(3));
-        kiln.addQuoter(address(3));
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quoters(1), address(2));
-        assertEq(kiln.quoters(2), address(3));
-        assertEq(kiln.quotersCount(), 3);
-
-        vm.expectEmit(true, true, false, false);
-        emit AddQuoter(address(4));
-        kiln.addQuoter(address(4));
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quoters(1), address(2));
-        assertEq(kiln.quoters(2), address(3));
-        assertEq(kiln.quoters(3), address(4));
-        assertEq(kiln.quotersCount(), 4);
-
-        // Remove in the middle
-        vm.expectEmit(true, true, false, false);
-        emit RemoveQuoter(2, address(3));
-        kiln.removeQuoter(2);
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quoters(1), address(2));
-        assertEq(kiln.quoters(2), address(4));
-        assertEq(kiln.quotersCount(), 3);
-
-        // Remove last
-        vm.expectEmit(true, true, false, false);
-        emit RemoveQuoter(2, address(4));
-        kiln.removeQuoter(2);
-        assertEq(kiln.quoters(0), address(1));
-        assertEq(kiln.quoters(1), address(2));
-        assertEq(kiln.quotersCount(), 2);
-
-        // Remove first
-        vm.expectEmit(true, true, false, false);
-        emit RemoveQuoter(0, address(1));
-        kiln.removeQuoter(0);
-        assertEq(kiln.quoters(0), address(2));
-        assertEq(kiln.quotersCount(), 1);
-
-        // Remove single
-        vm.expectEmit(true, true, false, false);
-        emit RemoveQuoter(0, address(2));
-        kiln.removeQuoter(0);
-        assertEq(kiln.quotersCount(), 0);
-    }
-
-    function testAddQuoterNonAuthed() public {
-        vm.startPrank(address(123));
-        vm.expectRevert("KilnBase/not-authorized");
-        kiln.addQuoter(address(7));
-    }
-
-    function testRemoveQuoterNonAuthed() public {
-        kiln.addQuoter(address(7));
-
-        vm.startPrank(address(123));
-        vm.expectRevert("KilnBase/not-authorized");
-        kiln.removeQuoter(0);
-    }
-
     function testMultipleQuoters() public {
         // Add a quoter with a higher amount than usual to act as reference
         HighAmountQuoter q2 = new HighAmountQuoter();
-        kiln.addQuoter(address(q2));
+        aggregator.addQuoter(address(q2));
 
         // Permissive values
         kiln.file("yen", 50 * WAD / 100);
