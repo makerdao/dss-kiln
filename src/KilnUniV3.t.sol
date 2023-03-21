@@ -17,14 +17,16 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./KilnUniV3.sol";
+import "src/KilnUniV3.sol";
+import "src/quoters/MaxAggregator.sol";
+import "src/quoters/QuoterTwapProduct.sol";
 
 interface TestGem {
     function totalSupply() external view returns (uint256);
 }
 
 // https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Quoter.sol#L106-L122
-interface Quoter {
+interface Univ3Quoter {
     function quoteExactInput(
         bytes calldata path,
         uint256 amountIn
@@ -33,9 +35,17 @@ interface Quoter {
 
 contract User {}
 
+contract HighAmountQuoter is IQuoter {
+    function quote(address, address, uint256 amountIn) external pure returns (uint256 amountOut) {
+        return amountIn; // MKR / DAI = 1, much higher out amount than usual
+    }
+}
+
 contract KilnTest is Test {
     KilnUniV3 kiln;
-    Quoter quoter;
+    MaxAggregator aggregator;
+    QuoterTwapProduct qtwap;
+    Univ3Quoter quoter;
     User user;
 
     bytes path;
@@ -51,19 +61,28 @@ contract KilnTest is Test {
     address constant QUOTER   = 0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6;
     address constant FACTORY  = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
+    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, bytes data);
     event File(bytes32 indexed what, uint256 data);
+    event AddQuoter(address indexed quoter);
+    event RemoveQuoter(uint256 indexed index, address indexed quoter);
 
     function setUp() public {
         user = new User();
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
 
         kiln = new KilnUniV3(DAI, MKR, ROUTER, address(user));
-        quoter = Quoter(QUOTER);
+        aggregator = new MaxAggregator();
+        quoter = Univ3Quoter(QUOTER);
 
         kiln.file("lot", 50_000 * WAD);
         kiln.file("hop", 6 hours);
         kiln.file("path", path);
+
+        qtwap = new QuoterTwapProduct(FACTORY);
+        qtwap.file("path", path);
+        aggregator.addQuoter(address(qtwap));
+        kiln.file("quoter", address(aggregator));
 
         kiln.file("yen", 50 * WAD / 100); // Insist on very little on default
     }
@@ -98,6 +117,13 @@ contract KilnTest is Test {
         SwapRouterLike(kiln.uniV3Router()).exactInput(params);
     }
 
+    function testFileQuoter() public {
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("quoter"), address(314));
+        kiln.file("quoter", address(314));
+        assertEq(kiln.quoter(), address(314));
+    }
+
     function testFilePath() public {
         path = abi.encodePacked(DAI, uint24(100), USDC);
         vm.expectEmit(true, true, false, false);
@@ -113,21 +139,9 @@ contract KilnTest is Test {
         assertEq(kiln.yen(), 42);
     }
 
-    function testFileScope() public {
-        vm.expectEmit(true, true, false, false);
-        emit File(bytes32("scope"), 314);
-        kiln.file("scope", 314);
-        assertEq(kiln.scope(), 314);
-    }
-
-    function testFileZeroScope() public {
-        vm.expectRevert("KilnUniV3/zero-scope");
-        kiln.file("scope", 0);
-    }
-
-    function testFileScopeTooLarge() public {
-        vm.expectRevert("KilnUniV3/scope-overflow");
-        kiln.file("scope", uint32(type(int32).max) + 1);
+    function testFileAddressUnrecognized() public {
+        vm.expectRevert("KilnUniV3/file-unrecognized-param");
+        kiln.file("nonsense", address(314));
     }
 
     function testFileBytesUnrecognized() public {
@@ -138,6 +152,12 @@ contract KilnTest is Test {
     function testFileUintUnrecognized() public {
         vm.expectRevert("KilnBase/file-unrecognized-param");
         kiln.file("nonsense", 23);
+    }
+
+    function testFileQuoterNonAuthed() public {
+        vm.startPrank(address(123));
+        vm.expectRevert("KilnBase/not-authorized");
+        kiln.file("quoter", address(314));
     }
 
     function testFilePathNonAuthed() public {
@@ -152,10 +172,17 @@ contract KilnTest is Test {
         kiln.file("yen", 42);
     }
 
-    function testFileScopeNonAuthed() public {
-        vm.startPrank(address(123));
-        vm.expectRevert("KilnBase/not-authorized");
-        kiln.file("scope", 413);
+    function testMultipleQuoters() public {
+        // Add a quoter with a higher amount than usual to act as reference
+        HighAmountQuoter q2 = new HighAmountQuoter();
+        aggregator.addQuoter(address(q2));
+
+        // Permissive values
+        kiln.file("yen", 50 * WAD / 100);
+
+        deal(DAI, address(kiln), 50_000 * WAD);
+        vm.expectRevert("Too little received");
+        kiln.fire();
     }
 
     function testFireYenMuchLessThanTwap() public {
@@ -268,8 +295,8 @@ contract KilnTest is Test {
         mintDai(address(kiln), 1_000_000 * WAD);
 
         kiln.file("hop", 0 hours); // for convenience allow firing right away
-        kiln.file("scope", 1 hours);
         kiln.file("yen", 120 * WAD / 100); // only swap if price rose by 20% vs twap
+        qtwap.file("scope", 1 hours);
 
         uint256 mkrBefore = GemLike(MKR).balanceOf(address(this));
 
@@ -304,8 +331,8 @@ contract KilnTest is Test {
         mintDai(address(kiln), 1_000_000 * WAD);
 
         kiln.file("hop", 0 hours); // for convenience allow firing right away
-        kiln.file("scope", 1 hours);
         kiln.file("yen", 80 * WAD / 100); // allow swap even if price fell by 20% vs twap
+        qtwap.file("scope", 1 hours);
 
         // make sure twap measures regular MKR out amount at the beginning of the hour (by making small swap)
         vm.roll(block.number + 1);

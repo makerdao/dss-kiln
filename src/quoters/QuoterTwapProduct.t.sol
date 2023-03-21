@@ -17,19 +17,19 @@
 pragma solidity ^0.8.14;
 
 import "forge-std/Test.sol";
-import "./TwapProduct.sol";
+import "src/quoters/QuoterTwapProduct.sol";
 
-// https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Quoter.sol#L106-L122
-interface Quoter {
+// https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/lens/Univ3Quoter.sol#L106-L122
+interface Univ3Quoter {
     function quoteExactInput(
         bytes calldata path,
         uint256 amountIn
     ) external returns (uint256 amountOut);
 }
 
-contract TwapProductTest is Test {
-    TwapProduct tpQuoter;
-    Quoter quoter;
+contract QuoterTwapProductTest is Test {
+    QuoterTwapProduct tpQuoter;
+    Univ3Quoter quoter;
 
     uint256 amtIn;
     uint32 scope;
@@ -61,115 +61,183 @@ contract TwapProductTest is Test {
         }
     }
 
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
+    event File(bytes32 indexed what, bytes data);
+    event File(bytes32 indexed what, uint256 data);
+
     function setUp() public {
-        quoter = Quoter(QUOTER);
-        tpQuoter = new TwapProduct(UNIFACTORY);
+        quoter = Univ3Quoter(QUOTER);
+        tpQuoter = new QuoterTwapProduct(UNIFACTORY);
 
         // default testing values
         path = abi.encodePacked(DAI, uint24(100), USDC, uint24(500), WETH, uint24(3000), MKR);
         amtIn = 30_000 * WAD;
         scope = 0.5 hours;
+
+        tpQuoter.file("path", path);
+        tpQuoter.file("scope", scope);
+    }
+
+    function testRely() public {
+        assertEq(tpQuoter.wards(address(123)), 0);
+        vm.expectEmit(true, false, false, false);
+        emit Rely(address(123));
+        tpQuoter.rely(address(123));
+        assertEq(tpQuoter.wards(address(123)), 1);
+    }
+
+    function testDeny() public {
+        assertEq(tpQuoter.wards(address(this)), 1);
+        vm.expectEmit(true, false, false, false);
+        emit Deny(address(this));
+        tpQuoter.deny(address(this));
+        assertEq(tpQuoter.wards(address(this)), 0);
+    }
+
+    function testRelyNonAuthed() public {
+        tpQuoter.deny(address(this));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.rely(address(123));
+    }
+
+    function testDenyNonAuthed() public {
+        tpQuoter.deny(address(this));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.deny(address(123));
+    }
+
+    function testFilePath() public {
+        path = abi.encodePacked(DAI, uint24(100), USDC);
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("path"), path);
+        tpQuoter.file("path", path);
+        assertEq0(tpQuoter.path(), path);
+    }
+
+    function testFileScope() public {
+        vm.expectEmit(true, true, false, false);
+        emit File(bytes32("scope"), 314);
+        tpQuoter.file("scope", 314);
+        assertEq(tpQuoter.scope(), 314);
+    }
+
+    function testFileZeroScope() public {
+        vm.expectRevert("QuoterTwapProduct/zero-scope");
+        tpQuoter.file("scope", 0);
+    }
+
+    function testFileScopeTooLarge() public {
+        vm.expectRevert("QuoterTwapProduct/scope-overflow");
+        tpQuoter.file("scope", uint32(type(int32).max) + 1);
+    }
+
+    function testFilePathNonAuthed() public {
+        vm.startPrank(address(123));
+        vm.expectRevert("QuoterTwapProduct/not-authorized");
+        tpQuoter.file("path", path);
     }
 
     function testSingleHopPath() public {
-        path = abi.encodePacked(USDC, uint24(500), WETH);
+        bytes memory _path = abi.encodePacked(USDC, uint24(500), WETH);
+        tpQuoter.file("path", _path);
         amtIn = 30_000 * 1e6;
 
-        uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 quoterAmt = quoter.quoteExactInput(_path, amtIn);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
 
         assertEqApproxBPS(tpQuoterAmt, quoterAmt, 500);
     }
 
     function testMultiHopPath() public {
         uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
 
         assertEqApproxBPS(tpQuoterAmt, quoterAmt, 500);
     }
 
     function testInvalidPathSingleToken() public {
-        path = abi.encodePacked(USDC);
+        tpQuoter.file("path", abi.encodePacked(USDC));
 
         vm.expectRevert("toUint24_outOfBounds");
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     function testInvalidPathSameToken() public {
-        path = abi.encodePacked(USDC, uint24(500), USDC);
+        tpQuoter.file("path", abi.encodePacked(USDC, uint24(500), USDC));
 
         vm.expectRevert();
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     function testInvalidPathTwoFees() public {
-        path = abi.encodePacked(USDC, uint24(500), uint24(500), USDC);
+        tpQuoter.file("path", abi.encodePacked(USDC, uint24(500), uint24(500), USDC));
 
         vm.expectRevert();
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     function testInvalidPathWrongFees() public {
-        path = abi.encodePacked(USDC, uint24(501), USDC);
+        tpQuoter.file("path", abi.encodePacked(USDC, uint24(501), USDC));
 
         vm.expectRevert();
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     function testZeroAmt() public {
         amtIn = 0;
 
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
         assertEq(tpQuoterAmt, 0);
     }
 
     function testTooLargeAmt() public {
         amtIn = uint256(type(uint128).max) + 1;
 
-        vm.expectRevert("TwapProduct/amountIn-overflow");
-        tpQuoter.quote(path, amtIn, scope);
+        vm.expectRevert("QuoterTwapProduct/amountIn-overflow");
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     // TWAP returns the counterfactual accumulator values at exactly the timestamp between two observations.
     // This means that a small scope should lean very close to the current price.
     function testSmallScope() public {
-        scope = 1 seconds;
+        tpQuoter.file("scope", 1 seconds);
 
         uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
         assertEqApproxBPS(tpQuoterAmt, quoterAmt, 500); // Note that there is still price impact for amtIn
     }
 
     function testSmallScopeSmallAmt() public {
         amtIn = 1 * WAD / 100;
-        scope = 1 seconds;
+        tpQuoter.file("scope", 1 seconds);
 
         uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
         assertEqApproxBPS(tpQuoterAmt, quoterAmt, 100); // Price impact for amtIn should be minimized
     }
 
     // using testFail as division by zero is not supported for vm.expectRevert
     function testFailZeroScope() public {
-        scope = 0 seconds;
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.file("scope", 0 seconds);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     function testTooLargeScope() public {
-        scope = 100000 seconds;
+        tpQuoter.file("scope", 100000 seconds);
 
         // https://github.com/Uniswap/v3-core/blob/fc2107bd5709cdee6742d5164c1eb998566bcb75/contracts/libraries/Oracle.sol#L226
         vm.expectRevert(bytes("OLD"));
-        tpQuoter.quote(path, amtIn, scope);
+        tpQuoter.quote(address(0), address(0), amtIn);
     }
 
     // Can be used for accumulating statistics through a wrapping script
     function testStat() public {
         amtIn = 30_000 * WAD;
-        scope = 30 minutes;
+        tpQuoter.file("scope", 30 minutes);
 
         uint256 quoterAmt = quoter.quoteExactInput(path, amtIn);
-        uint256 tpQuoterAmt = tpQuoter.quote(path, amtIn, scope);
+        uint256 tpQuoterAmt = tpQuoter.quote(address(0), address(0), amtIn);
         uint256 ratio = quoterAmt * WAD / tpQuoterAmt;
 
         console.log('{"tag": "Debug", "block": %s, "timestamp": %s, "ratio": %s}', block.number, block.timestamp, ratio);
