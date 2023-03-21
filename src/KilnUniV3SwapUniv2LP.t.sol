@@ -76,7 +76,7 @@ contract KilnTest is Test {
     User user;
 
     uint256 halfLot;
-    uint256 refOneWad;
+    uint256 refSmall;
     uint256 refHalfLot;
 
     address pairToken;
@@ -87,7 +87,8 @@ contract KilnTest is Test {
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant MKR  = 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2;
 
-    uint256 constant WAD = 1e18;
+    uint256 constant WAD   = 1e18;
+    uint256 constant SMALL = 1e16;
 
     address constant UNIV2ROUTER   = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address constant UNIV2DAIMKRLP = 0x517F9dD285e75b599234F7221227339478d0FcC8;
@@ -125,12 +126,12 @@ contract KilnTest is Test {
         // console.log("refHalfLot: %s", refHalfLot);
 
         // When changing univ2 price we'll use one WAD as reference fire only deposit theres (no price change)
-        refOneWad = getRefOutAMount(WAD);
+        refSmall = getRefOutAMount(SMALL);
 
         // Bootstrapping -
         // As there's almost no initial liquidity in v2, need to arb the price then deposit a reasonable amount
         // As these are small amounts involved the assumption is that it will happen separately from kiln
-        changeUniv2Price(WAD, refOneWad * 995 / 1000, refOneWad * 1005 / 1000);
+        changeUniv2Price(SMALL, refSmall * 995 / 1000, refSmall * 1005 / 1000);
     }
 
     function getRefOutAMount(uint256 amountIn) internal view returns (uint256) {
@@ -337,27 +338,27 @@ contract KilnTest is Test {
     Note that `Higher` stands for higher out amount than the reference, while `Lower` stands for lower out amount
     than the reference.
 
-    When Univ3 out amount is higher than the reference a yen of 100% should allow it, and we assume 105% blocks it.
-    When Univ3 out amount is lower than the reference we assume a yen of 95% should allow it, and 100% blocks it.
-    When Univ2 out amount is either lower or higher a zen of 95% should allow it, and 100% blocks it.
+    When Univ3 out amount is higher than the reference a yen of 100% should allow it, and we assume 102% blocks it.
+    When Univ3 out amount is lower than the reference we assume a yen of 98% should allow it, and 100% blocks it.
+    When Univ2 out amount is either lower or higher a zen of 98% should allow it, and 100% blocks it.
 
     testFire
     ├── Univ3Higher
     │         ├── YenAllows (1.00)
     │         │         ├── Univ2Higher
-    │         │         │         ├── ZenAllows (0.95)
+    │         │         │         ├── ZenAllows (0.98)
     │         │         │         └── ZenBlocks (1.0)
     │         │         └── Univ2Lower
-    │         │             ├── ZenAllows (0.95)
+    │         │             ├── ZenAllows (0.98)
     │         │             └── ZenBlocks (1.00)
-    │         └── YenBlocks (1.05)
+    │         └── YenBlocks (1.02)
     └── Univ3Lower
-              ├── YenAllows (0.95)
+              ├── YenAllows (0.98)
               │         ├── Univ2Higher
-              │         │         ├── ZenAllows (0.95)
+              │         │         ├── ZenAllows (0.98)
               │         │         └── ZenBlocks (1.00)
               │         └── Univ2Lower
-              │             ├── ZenAllows (0.95)
+              │             ├── ZenAllows (0.98)
               │             └── ZenBlocks (1.00)
               └── YenBlocks (1.00)
     */
@@ -366,7 +367,7 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
+        changeUniv2Price(SMALL, refSmall, refSmall * 102 / 100);
         kiln.file("zen", 98 * WAD / 100);
 
         deal(DAI, address(kiln), 50_000 * WAD);
@@ -381,14 +382,12 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
+        changeUniv2Price(SMALL, refSmall, refSmall * 102 / 100);
         kiln.file("zen", 1 * WAD);
 
         deal(DAI, address(kiln), 50_000 * WAD);
 
-        // Note that if both uniV2 min amounts don't suffice the revert is "INSUFFICIENT_A_AMOUNT" -
-        // https://github.com/Uniswap/v2-periphery/blob/master/contracts/UniswapV2Router02.sol#L56
-        vm.expectRevert("UniswapV2Router: INSUFFICIENT_A_AMOUNT");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/deposit-price-out-of-bounds");
         kiln.fire();
     }
 
@@ -396,7 +395,7 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
+        changeUniv2Price(SMALL, refSmall * 98 / 100, refSmall);
         kiln.file("zen", 98 * WAD / 100);
 
         deal(DAI, address(kiln), 50_000 * WAD);
@@ -411,11 +410,11 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot, refHalfLot * 102 / 100);
         kiln.file("yen", 100 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
+        changeUniv2Price(SMALL, refSmall * 98 / 100, refSmall);
         kiln.file("zen", 1 * WAD);
 
         deal(DAI, address(kiln), 50_000 * WAD);
-        vm.expectRevert("UniswapV2Router: INSUFFICIENT_A_AMOUNT");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/deposit-price-out-of-bounds");
         kiln.fire();
     }
 
@@ -433,7 +432,7 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
+        changeUniv2Price(SMALL, refSmall, refSmall * 102 / 100);
         kiln.file("zen", 98 * WAD / 100);
 
         deal(DAI, address(kiln), 50_000 * WAD);
@@ -449,11 +448,11 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad, refOneWad * 102 / 100);
+        changeUniv2Price(SMALL, refSmall, refSmall * 102 / 100);
         kiln.file("zen", 1 * WAD);
 
         deal(DAI, address(kiln), 50_000 * WAD);
-        vm.expectRevert("UniswapV2Router: INSUFFICIENT_A_AMOUNT");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/deposit-price-out-of-bounds");
         kiln.fire();
     }
 
@@ -461,7 +460,7 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
+        changeUniv2Price(SMALL, refSmall * 98 / 100, refSmall);
         kiln.file("zen", 98 * WAD / 100);
 
         deal(DAI, address(kiln), 50_000 * WAD);
@@ -476,11 +475,11 @@ contract KilnTest is Test {
         changeUniv3Price(halfLot, refHalfLot * 98 / 100, refHalfLot);
         kiln.file("yen", 98 * WAD / 100);
 
-        changeUniv2Price(WAD, refOneWad * 98 / 100, refOneWad);
+        changeUniv2Price(SMALL, refSmall * 98 / 100, refSmall);
         kiln.file("zen", 1 * WAD);
 
         deal(DAI, address(kiln), 50_000 * WAD);
-        vm.expectRevert("UniswapV2Router: INSUFFICIENT_A_AMOUNT");
+        vm.expectRevert("KilnUniV3SwapUniv2LP/deposit-price-out-of-bounds");
         kiln.fire();
     }
 

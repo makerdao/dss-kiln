@@ -19,7 +19,7 @@ pragma solidity ^0.8.14;
 import "forge-std/Test.sol";
 import "src/quoters/MaxAggregator.sol";
 
-contract AffregatorTest is Test {
+contract AggregatorTest is Test {
     MaxAggregator aggregator;
 
     event Rely(address indexed usr);

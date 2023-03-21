@@ -149,32 +149,29 @@ contract KilnUniV3SwapUniv2LP is KilnBase {
         });
         uint256 bought = SwapRouterLike(uniV3Router).exactInput(params);
 
-        // In case the `sell` token deposit amount needs to be insisted on it means the full `bought` amount of buy tokens are deposited.
-        // Therefore we want at least the reference price (halfIn / quote) factored by zen.
-        uint256 _zen = zen;
-        uint256 sellDepositMin = (bought * _halfIn / quote) * _zen / WAD;
-
-        // In case the `buy` token deposit amount needs to be insisted on it means the full `halfIn` amount of sell tokens are deposited.
-        // As `halflot` was also used in the quote calculation, it represents the exact reference price and only needs to be factored by zen
-        uint256 buyDepositMin  = quote * _zen / WAD;
-
         GemLike(sell).approve(uniV2Router, _halfIn);
         GemLike(buy).approve(uniV2Router, bought);
-        (, uint256 amountB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({
+        (uint256 depositA, uint256 depositB, uint256 liquidity) = UniswapV2Router02Like(uniV2Router).addLiquidity({
             tokenA:         sell,
             tokenB:         buy,
             amountADesired: _halfIn,
             amountBDesired: bought,
-            amountAMin:     sellDepositMin,
-            amountBMin:     buyDepositMin,
+            amountAMin:     0, // price check is done separately vs quote below
+            amountBMin:     0,
             to:             receiver,
             deadline:       block.timestamp
         });
         swapped = liquidity;
 
+        uint256 _zen = zen;
+        uint256 depositToQuote = (depositB * WAD / depositA) * WAD / (quote * WAD / _halfIn);
+        require(depositToQuote >= _zen && depositToQuote <= (2 * WAD - _zen),
+                "KilnUniV3SwapUniv2LP/deposit-price-out-of-bounds"
+        );
+
         // If not all buy tokens were used, send the remainder to the receiver
-        if (bought > amountB) {
-            GemLike(buy).transfer(receiver, bought - amountB);
+        if (bought > depositB) {
+            unchecked { GemLike(buy).transfer(receiver, bought - depositB); }
         }
     }
 
